@@ -7,6 +7,10 @@ QWidget[class="sidebar"] {
 	border-right: 2px solid #07e9f5;
 }
 
+QLabel {
+	color: white;
+}
+
 QLabel[class="sidebar_header"] {
 	color: #282828;
 	background: #07e9f5;
@@ -22,15 +26,10 @@ QLabel[class="sidebar_sub_header"] {
 	font-weight: 500;
 }
 
-QWidget{
-	padding: 0px;
-	margin: 0px;
-}
-
 QPushButton[class="media_button"] {
     border: none;
-    padding: 0;
-    margin: 0;
+    padding: 0px;
+    margin: 0px;
     background: transparent;
 }
 
@@ -38,6 +37,40 @@ QPushButton[class="media_button"]:hover {
 	background: #484848;
 }
 
-#slideshow_panel{
-	
+
+
+
+
+#scroll_area {
+	background-color: #181818;
+}
+
+QWidget[class="cell"] {
+}
+
+QWidget[class="cell_image"] {
+	background-color: #282828;
+}
+
+QWidget[class="cell_footer"] {
+	background-color: #282828;
+}
+
+QWidget[class="cell_id"] {
+	background-color: #282828;
+	color: #ffffff;
+}
+
+QWidget[class="cell_name"] {
+	background-color: #282828;
+	color: #ffffff;
+}
+
+QPushButton[class="cell_fav_button"] {
+	background-color: #282828;
+	border: none;
+}
+
+QPushButton[class="cell_fav_button"]:hover {
+	background-color: #484848;
 }

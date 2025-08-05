@@ -1,5 +1,9 @@
 
 import sys
+import os
+import random
+import time
+
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QMainWindow,
     QHBoxLayout, QVBoxLayout, QGridLayout, QFormLayout,
@@ -31,6 +35,8 @@ class MainWindow(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QHBoxLayout()
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
         central_widget.setLayout(main_layout)
 
         # Sidebar
@@ -38,6 +44,8 @@ class MainWindow(QMainWindow):
         self.sidebar1.setProperty("class", "sidebar")
         self.sidebar1.setFixedWidth(200)
         sidebar_layout = QVBoxLayout()
+        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_layout.setSpacing(0)
         self.sidebar1.setLayout(sidebar_layout)
 
         # Sidebar Options
@@ -81,6 +89,8 @@ class MainWindow(QMainWindow):
         self.sidebar2.setProperty("class", "sidebar")
         self.sidebar2.setFixedWidth(200)
         sidebar_layout = QVBoxLayout()
+        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_layout.setSpacing(0)
         self.sidebar2.setLayout(sidebar_layout)
 
         # Sidebar Options
@@ -210,55 +220,93 @@ class MainWindow(QMainWindow):
         sidebar.setObjectName("slideshow_panel")
         sidebar.setFixedWidth(50)
         sidebar_layout = QVBoxLayout()
+        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_layout.setSpacing(0)
         sidebar.setLayout(sidebar_layout)
 
         # Sidebar Options
         button = MediaControlButton("icons/play.png", alt_icon="icons/pause.png")
-        sidebar_layout.addWidget(button)
+        sidebar_layout.addWidget(button, alignment=Qt.AlignHCenter)
         button.clicked.connect(self.toggle_sidebars_hide)
 
         button = MediaControlButton("icons/stop.png")
-        sidebar_layout.addWidget(button)
+        sidebar_layout.addWidget(button, alignment=Qt.AlignHCenter)
         button.clicked.connect(self.show_sidebars)
 
-
         button = MediaControlButton("icons/fast_forwards.png")
-        sidebar_layout.addWidget(button)
+        sidebar_layout.addWidget(button, alignment=Qt.AlignHCenter)
 
         button = MediaControlButton("icons/fast_backwards.png")
-        sidebar_layout.addWidget(button)
+        sidebar_layout.addWidget(button, alignment=Qt.AlignHCenter)
 
         button = MediaControlButton("icons/fastest_forwards.png")
-        sidebar_layout.addWidget(button)
+        sidebar_layout.addWidget(button, alignment=Qt.AlignHCenter)
 
         button = MediaControlButton("icons/fastest_backwards.png")
-        sidebar_layout.addWidget(button)
+        sidebar_layout.addWidget(button, alignment=Qt.AlignHCenter)
 
         button = MediaControlButton("icons/skip_forwards.png")
-        sidebar_layout.addWidget(button)
+        sidebar_layout.addWidget(button, alignment=Qt.AlignHCenter)
 
         button = MediaControlButton("icons/skip_backwards.png")
-        sidebar_layout.addWidget(button)
+        sidebar_layout.addWidget(button, alignment=Qt.AlignHCenter)
 
         button = MediaControlButton("icons/loop_off.png", alt_icon="icons/loop_on.png")
-        sidebar_layout.addWidget(button)
+        sidebar_layout.addWidget(button, alignment=Qt.AlignHCenter)
 
         button = MediaControlButton("icons/shuffle_off.png", alt_icon="icons/shuffle_on.png")
-        sidebar_layout.addWidget(button)
+        sidebar_layout.addWidget(button, alignment=Qt.AlignHCenter)
 
         sidebar_layout.addStretch()
         main_layout.addWidget(sidebar)
         
-        # Main Content Area
+        # Get cell size
+        available_width = QApplication.primaryScreen().size().width() - 450
+        columns = 4
+        cell_size = available_width // columns
+
+        # Setup main content layout
         main_content = QWidget()
         main_content_layout = QVBoxLayout()
+        main_content_layout.setContentsMargins(0, 0, 0, 0)
+        main_content_layout.setSpacing(0)
         main_content.setLayout(main_content_layout)
 
-        main_content_layout.addWidget(QLabel("Main Content Area"))
-        main_content_layout.addStretch()
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+
+        show_scroll_bar = False
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded if show_scroll_bar else Qt.ScrollBarAlwaysOff)
+
+        scroll_content = QWidget()
+        scroll_content.setObjectName("scroll_area")
+        grid_layout = QGridLayout(scroll_content)
+        self.grid_spacing = 10
+        grid_layout.setContentsMargins(self.grid_spacing, self.grid_spacing, self.grid_spacing, self.grid_spacing)
+        grid_layout.setSpacing(self.grid_spacing)
+
+        # Parameters
+        image_folder = "media"
+        max_images = 30
+        columns = 4
+        available_width = QApplication.primaryScreen().size().width() - 450 - ((columns - 1) * self.grid_spacing) - self.grid_spacing * 2
+        cell_size = available_width // columns
+
+        # Load and display
+        image_files = [f for f in os.listdir(image_folder) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif'))][:max_images]
+
+        for i, filename in enumerate(image_files):
+            image_path = os.path.join(image_folder, filename)
+            cell_widget = GalleryCell(image_path, cell_size)
+            row = i // columns
+            col = i % columns
+            grid_layout.addWidget(cell_widget, row, col)
+
+        scroll_area.setWidget(scroll_content)
+        main_content_layout.addWidget(scroll_area)
         main_layout.addWidget(main_content)
 
-        # Update Main Layout
         main_content.setSizePolicy(sidebar.sizePolicy().Expanding, sidebar.sizePolicy().Expanding)
         self.showMaximized()
 
@@ -277,8 +325,99 @@ def load_stylesheet(path):
     with open(path, "r") as file:
         return file.read()
 
+class GalleryCell(QWidget):
+    def __init__(self, image_path, cell_size, parent=None):
+        super().__init__(parent)
+
+        self.setFixedSize(cell_size, cell_size + 40)
+        self.setMouseTracking(True)
+        self.setProperty("class", "cell")
+
+        self.is_fav = False
+        self.is_hovering = False
+        self.icon_off = QIcon("icons/heart_white.png")
+        self.icon_on = QIcon("icons/heart_red.png")
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # --- Image ---
+        pixmap = QPixmap(image_path).scaled(cell_size, cell_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        image_label = QLabel()
+        image_label.setPixmap(pixmap)
+        image_label.setAlignment(Qt.AlignCenter)
+        image_label.setFixedSize(cell_size, cell_size)
+        image_label.setProperty("class", "cell_image")
+        layout.addWidget(image_label)
+
+        # --- Footer ---
+        footer = QWidget()
+        footer_layout = QHBoxLayout()
+        footer_layout.setContentsMargins(0, 0, 0, 0)
+        footer_layout.setSpacing(0)
+        footer.setLayout(footer_layout)
+        footer.setProperty("class", "cell_footer")
+
+        label_id = QLabel("81")
+        label_id.setProperty("class", "cell_id")
+
+        label_spacer = QLabel("  -  ")
+
+        label_name = QLabel(os.path.basename(image_path))
+        label_name.setProperty("class", "cell_name")
+
+        self.heart_button = QPushButton()
+        self.heart_button.setCheckable(True)
+        self.heart_button.setChecked(False)
+        self.heart_button.setIcon(QIcon())
+        self.heart_button.setIconSize(QSize(24, 24))
+        self.heart_button.setFixedSize(32, 32)
+        self.heart_button.setProperty("class", "cell_fav_button")
+        self.heart_button.clicked.connect(self.toggle)
+        
+        footer_layout.addWidget(label_id)
+        footer_layout.addWidget(label_spacer)
+        footer_layout.addWidget(label_name)
+        footer_layout.addStretch()
+        footer_layout.addWidget(self.heart_button)
+
+        layout.addWidget(footer)
+
+        self.update_heart_visibility()
+
+    def toggle(self):
+        self.is_fav = not self.is_fav
+        self.heart_button.setIcon(self.icon_on if self.is_fav else self.icon_off)
+        self.update_heart_visibility()
+
+    def is_checked(self):
+        return self.is_fav
+
+    def set_checked(self, value: bool):
+        self.is_fav = value
+        self.heart_button.setChecked(value)
+        self.heart_button.setIcon(self.icon_on if value else self.icon_off)
+        self.update_heart_visibility()
+
+    def update_heart_visibility(self):
+        if self.is_fav:
+            self.heart_button.setIcon(QIcon(self.icon_on))
+        elif self.is_hovering:
+            self.heart_button.setIcon(QIcon(self.icon_off))
+        else:
+            self.heart_button.setIcon(QIcon())
+
+    def enterEvent(self, event):
+        self.is_hovering = True
+        self.update_heart_visibility()
+
+    def leaveEvent(self, event):
+        self.is_hovering = False
+        self.update_heart_visibility()
+
 class MediaControlButton(QPushButton):
-    def __init__(self, icon_path, alt_icon="", size=36, icon_size=24, parent=None):
+    def __init__(self, icon_path, alt_icon="", size=50, icon_size=28, parent=None):
         super().__init__(parent)
 
         self.icon_on = QIcon(alt_icon)
