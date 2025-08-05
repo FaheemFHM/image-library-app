@@ -30,19 +30,21 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Media Manager")
         self.setWindowIcon(QIcon("icons/app_icon.png"))
+        self.grid_spacing = 10
 
         # Central Widget
         central_widget = QWidget()
+        central_widget.setObjectName("central_widget")
         self.setCentralWidget(central_widget)
-        main_layout = QHBoxLayout()
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-        central_widget.setLayout(main_layout)
+        central_layout = QHBoxLayout()
+        central_layout.setContentsMargins(self.grid_spacing, self.grid_spacing, self.grid_spacing, self.grid_spacing)
+        central_layout.setSpacing(self.grid_spacing)
+        central_widget.setLayout(central_layout)
 
         # Sidebar
         self.sidebar1 = QWidget()
-        self.sidebar1.setProperty("class", "sidebar")
         self.sidebar1.setFixedWidth(200)
+        self.sidebar1.setProperty("class", "sidebar")
         sidebar_layout = QVBoxLayout()
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_layout.setSpacing(0)
@@ -82,12 +84,12 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(tag_grid)
 
         sidebar_layout.addStretch()
-        main_layout.addWidget(self.sidebar1)
+        central_layout.addWidget(self.sidebar1)
 
         # Sidebar
         self.sidebar2 = QWidget()
-        self.sidebar2.setProperty("class", "sidebar")
         self.sidebar2.setFixedWidth(200)
+        self.sidebar2.setProperty("class", "sidebar")
         sidebar_layout = QVBoxLayout()
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_layout.setSpacing(0)
@@ -204,30 +206,33 @@ class MainWindow(QMainWindow):
 
         button = QPushButton("Search")
         sidebar_layout.addWidget(button)
+        
         button = QPushButton("Sort")
         sidebar_layout.addWidget(button)
+        
         button = QPushButton("Tags")
         sidebar_layout.addWidget(button)
+        
         button = QPushButton("Filters")
         sidebar_layout.addWidget(button)
 
         sidebar_layout.addStretch()
-        main_layout.addWidget(self.sidebar2)
+        central_layout.addWidget(self.sidebar2)
 
         # Sidebar
         sidebar = QWidget()
+        sidebar.setFixedWidth(50)
         sidebar.setProperty("class", "sidebar")
         sidebar.setObjectName("slideshow_panel")
-        sidebar.setFixedWidth(50)
         sidebar_layout = QVBoxLayout()
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_layout.setSpacing(0)
         sidebar.setLayout(sidebar_layout)
 
         # Sidebar Options
-        button = MediaControlButton("icons/play.png", alt_icon="icons/pause.png")
-        sidebar_layout.addWidget(button, alignment=Qt.AlignHCenter)
-        button.clicked.connect(self.toggle_sidebars_hide)
+        self.play_button = MediaControlButton("icons/play.png", alt_icon="icons/pause.png")
+        sidebar_layout.addWidget(self.play_button, alignment=Qt.AlignHCenter)
+        self.play_button.clicked.connect(self.play_pause)
 
         button = MediaControlButton("icons/stop.png")
         sidebar_layout.addWidget(button, alignment=Qt.AlignHCenter)
@@ -253,12 +258,14 @@ class MainWindow(QMainWindow):
 
         button = MediaControlButton("icons/loop_off.png", alt_icon="icons/loop_on.png")
         sidebar_layout.addWidget(button, alignment=Qt.AlignHCenter)
+        self.loop_on = False
+        button.clicked.connect(self.toggle_loop)
 
         button = MediaControlButton("icons/shuffle_off.png", alt_icon="icons/shuffle_on.png")
         sidebar_layout.addWidget(button, alignment=Qt.AlignHCenter)
 
         sidebar_layout.addStretch()
-        main_layout.addWidget(sidebar)
+        central_layout.addWidget(sidebar)
         
         # Get cell size
         available_width = QApplication.primaryScreen().size().width() - 450
@@ -266,64 +273,145 @@ class MainWindow(QMainWindow):
         cell_size = available_width // columns
 
         # Setup main content layout
-        main_content = QWidget()
-        main_content_layout = QVBoxLayout()
-        main_content_layout.setContentsMargins(0, 0, 0, 0)
-        main_content_layout.setSpacing(0)
-        main_content.setLayout(main_content_layout)
+        self.gallery = QWidget()
+        self.gallery.setObjectName("main_contents")
+        self.gallery_layout = QVBoxLayout()
+        self.gallery_layout.setContentsMargins(0, 0, 0, 0)
+        self.gallery_layout.setSpacing(0)
+        self.gallery.setLayout(self.gallery_layout)
 
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
 
         show_scroll_bar = False
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded if show_scroll_bar else Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded if show_scroll_bar else Qt.ScrollBarAlwaysOff)
 
         scroll_content = QWidget()
         scroll_content.setObjectName("scroll_area")
         grid_layout = QGridLayout(scroll_content)
-        self.grid_spacing = 10
-        grid_layout.setContentsMargins(self.grid_spacing, self.grid_spacing, self.grid_spacing, self.grid_spacing)
+        grid_layout.setContentsMargins(0, 0, 0, 0)
         grid_layout.setSpacing(self.grid_spacing)
 
         # Parameters
         image_folder = "media"
-        max_images = 30
+        self.image_count = 29
         columns = 4
         available_width = QApplication.primaryScreen().size().width() - 450 - ((columns - 1) * self.grid_spacing) - self.grid_spacing * 2
         cell_size = available_width // columns
 
         # Load and display
-        image_files = [f for f in os.listdir(image_folder) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif'))][:max_images]
-
-        for i, filename in enumerate(image_files):
-            image_path = os.path.join(image_folder, filename)
+        files = [f for f in os.listdir(image_folder) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif'))]
+        self.image_files = [os.path.join(image_folder, f) for f in files][:self.image_count]
+        self.image_files.reverse()
+        self.image_index = 0
+        
+        for i, filename in enumerate(self.image_files):
+            image_path = filename
             cell_widget = GalleryCell(image_path, cell_size)
             row = i // columns
             col = i % columns
             grid_layout.addWidget(cell_widget, row, col)
 
-        scroll_area.setWidget(scroll_content)
-        main_content_layout.addWidget(scroll_area)
-        main_layout.addWidget(main_content)
+        # Slideshow
+        self.slideshow_on = False
+        self.slideshow = QWidget()
+        self.slideshow_layout = QVBoxLayout()
+        self.slideshow_layout.setContentsMargins(0, 0, 0, 0)
+        self.slideshow_layout.setSpacing(0)
 
-        main_content.setSizePolicy(sidebar.sizePolicy().Expanding, sidebar.sizePolicy().Expanding)
+        self.slideshow_timer = QTimer(self)
+        self.slideshow_timer.setInterval(1000)
+        self.slideshow_timer.timeout.connect(self.next_slide)
+
+        # Create the image label without pixmap
+        self.slideshow_image = ScaledImageLabel()
+        pixmap = QPixmap(self.image_files[0])
+        self.slideshow_image.setPixmap(pixmap)
+
+        self.slideshow_layout.addWidget(self.slideshow_image)
+        self.slideshow.setLayout(self.slideshow_layout)
+        self.slideshow.hide()
+
+        # Main layout
+        self.scroll_area.setWidget(scroll_content)
+        self.gallery_layout.addWidget(self.scroll_area)
+        central_layout.addWidget(self.gallery)
+        central_layout.addWidget(self.slideshow)
+
+        self.gallery.setSizePolicy(sidebar.sizePolicy().Expanding, sidebar.sizePolicy().Expanding)
         self.showMaximized()
 
-    def toggle_sidebars_hide(self):
+    def play_pause(self):
+        # off is pause
+        if self.play_button.is_on:
+            if self.sidebar1.isVisible() or self.sidebar2.isVisible():
+                self.hide_sidebars()
+            else:
+                self.start_slideshow()
+        else:
+            self.stop_slideshow()
+
+    def hide_sidebars(self):
         if self.sidebar1.isVisible() or self.sidebar2.isVisible():
             self.sidebar1.hide()
             self.sidebar2.hide()
-
+            self.gallery.hide()
+            self.slideshow.show()
+            self.image_index = 0
+            self.next_slide()
+            self.start_slideshow()
+    
     def show_sidebars(self):
         if not self.sidebar1.isVisible() or not self.sidebar2.isVisible():
+            self.stop_slideshow()
+            self.slideshow.hide()
+            if self.play_button.is_on:
+                self.play_button.toggle()
             self.sidebar1.show()
             self.sidebar2.show()
+            self.gallery.show()
 
+    def next_slide(self):
+        if self.image_index >= self.image_count - 1:
+            if not self.loop_on:
+                self.stop_slideshow()
+        pixmap = QPixmap(self.image_files[self.image_index])
+        self.image_index = (self.image_index + 1) % self.image_count
+        self.slideshow_image.setPixmap(pixmap)
+        self.slideshow_image.update()
+
+    def start_slideshow(self):
+        self.slideshow_timer.start()
+        self.slideshow_on = True
+
+    def stop_slideshow(self):
+        self.slideshow_timer.stop()
+        self.slideshow_on = False
+
+    def toggle_loop(self):
+        self.loop_on = not self.loop_on
 
 def load_stylesheet(path):
     with open(path, "r") as file:
         return file.read()
+
+class ScaledImageLabel(QLabel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.original_pixmap = None
+        self.setAlignment(Qt.AlignCenter)
+
+    def setPixmap(self, pixmap):
+        self.original_pixmap = pixmap
+        if pixmap:
+            scaled = pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            super().setPixmap(scaled)
+
+    def resizeEvent(self, event):
+        if self.original_pixmap:
+            scaled = self.original_pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            super().setPixmap(scaled)
 
 class GalleryCell(QWidget):
     def __init__(self, image_path, cell_size, parent=None):
@@ -354,7 +442,7 @@ class GalleryCell(QWidget):
         # --- Footer ---
         footer = QWidget()
         footer_layout = QHBoxLayout()
-        footer_layout.setContentsMargins(0, 0, 0, 0)
+        footer_layout.setContentsMargins(10, 0, 10, 0)
         footer_layout.setSpacing(0)
         footer.setLayout(footer_layout)
         footer.setProperty("class", "cell_footer")
@@ -438,11 +526,6 @@ class MediaControlButton(QPushButton):
 
     def is_checked(self):
         return self.is_on
-
-    def set_checked(self, value: bool):
-        self.is_on = value
-        self.toggle_button.setChecked(value)
-        self.toggle()
         
 class DateTimeInput(QWidget):
     def __init__(self, use_current_time=True):

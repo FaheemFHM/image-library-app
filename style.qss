@@ -1,10 +1,14 @@
 
+QWidget, QScrollArea, QPushButton {
+	border: none;
+}
+
 QMainWindow {
 	background: #282828;
 }
 
 QWidget[class="sidebar"] {
-	border-right: 2px solid #07e9f5;
+	background-color: #282828;
 }
 
 QLabel {
@@ -21,7 +25,6 @@ QLabel[class="sidebar_header"] {
 
 QLabel[class="sidebar_sub_header"] {
 	color: #07e9f5;
-	border-top: 1px solid #07e9f5;
 	padding-top: 5px;
 	font-weight: 500;
 }
@@ -37,12 +40,24 @@ QPushButton[class="media_button"]:hover {
 	background: #484848;
 }
 
+#central_widget {
+	background-color: #181818;
+	border: none;
+}
 
+#sidebars {
+	background-color: #181818;
+	border: none;
+}
 
-
+#main_contents {
+	background-color: #181818;
+	border: none;
+}
 
 #scroll_area {
 	background-color: #181818;
+	border: none;
 }
 
 QWidget[class="cell"] {
