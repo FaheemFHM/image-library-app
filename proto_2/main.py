@@ -148,9 +148,35 @@ class MainWindow(QMainWindow):
         central_layout.addWidget(self.media_controls)
 
         # Main Section
-        self.main_content = QWidget()
+        self.main_content = StyledWidget()
         self.main_content.setObjectName("main_content")
         self.main_content.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        main_layout = QVBoxLayout(self.main_content)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # Gallery Grid
+        self.gallery = Gallery(columns=4)
+
+        media_folder = "../media"
+        image_files = sorted([
+            f for f in os.listdir(media_folder)
+            if f.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif"))
+        ])[:29][::-1]  # reversed first 29 files
+
+        for i, filename in enumerate(image_files, start=1):
+            full_path = os.path.join(media_folder, filename)
+            cell = GalleryCell(
+                image_path=full_path,
+                id_text=str(i),
+                parent = self.gallery
+            )
+            self.gallery.add_cell(cell)
+
+        main_layout.addWidget(self.gallery)
+
+        # Add main layout to central layout
         central_layout.addWidget(self.main_content)
         
         self.showMaximized()
@@ -162,6 +188,150 @@ class MainWindow(QMainWindow):
         for sidebar in [self.sidebar1, self.sidebar2]:
             if sidebar:
                 sidebar.setVisible(do_show)
+
+class GalleryCell(StyledWidget):
+    def __init__(self, image_path, id_text, spacing=10, footer_height=32, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_Hover, True)
+        self.setMouseTracking(True)
+        self.image_path = image_path
+        self.pixmap = QPixmap(image_path)
+        self.width = 10
+
+        # Main Layout
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(spacing)
+        self.setLayout(layout)
+
+        # Image
+        self.pixmap = QPixmap(image_path)
+        self.image_label = QLabel()
+        self.image_label.setPixmap(self.pixmap)
+        self.image_label.setAlignment(Qt.AlignCenter)
+        self.image_label.setFixedSize(self.width, self.width)
+        layout.addWidget(self.image_label)
+
+        # Footer
+        footer = QWidget()
+        self.footer_height = footer_height
+        footer.setFixedHeight(footer_height)
+        footer_layout = QHBoxLayout()
+        footer_layout.setContentsMargins(10, 0, 0, 0)
+        footer_layout.setSpacing(0)
+        footer.setLayout(footer_layout)
+
+        self.label_id = QLabel(id_text)
+
+        label_spacer = QLabel("     -     ")
+
+        self.label_name = QLabel(os.path.basename(image_path))
+
+        self.edit_button = IconButton("../icons/edit.png", 20, footer_height)
+        self.edit_button.setVisible(False)
+
+        self.fav_button = IconToggleButton("../icons/heart_white.png", "../icons/heart_red.png", 24, footer_height)
+        self.fav_button.setVisible(False)
+        self.fav_button.toggled.connect(self._check_visibility)
+
+        footer_layout.addWidget(self.label_id)
+        footer_layout.addWidget(label_spacer)
+        footer_layout.addWidget(self.label_name)
+        footer_layout.addStretch()
+        footer_layout.addWidget(self.edit_button)
+        footer_layout.addWidget(self.fav_button)
+
+        layout.addWidget(footer)
+
+        # Styling
+        self.image_label.setObjectName("cell_image")
+        footer.setObjectName("cell_footer")
+        self.label_id.setObjectName("cell_id")
+
+    def enterEvent(self, event):
+        self._check_visibility()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._check_visibility()
+        super().leaveEvent(event)
+
+    def _check_visibility(self):
+        hovered = self.underMouse()
+        toggled = self.fav_button.isChecked()
+        self.edit_button.setVisible(hovered)
+        self.fav_button.setVisible(hovered or toggled)
+
+    def set_cell_width(self, width):
+        self.width = width
+        self.setFixedWidth(width)
+        image_height = width + self.footer_height
+        self.image_label.setFixedSize(width, image_height)
+
+        if not self.pixmap.isNull():
+            scaled = self.pixmap.scaled(
+                self.image_label.size(),
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation
+            )
+            self.image_label.setPixmap(scaled)
+
+class Gallery(StyledWidget):
+    def __init__(self, columns=3, spacing=10, parent=None):
+        super().__init__(parent)
+
+        self.columns = columns
+        self.spacing = spacing
+        self.cell_count = 0
+        self.cells = []
+        self.cell_width = 10
+
+        # Outer layout
+        self.container = QVBoxLayout(self)
+        self.container.setContentsMargins(0, 0, 0, 0)
+        self.container.setSpacing(0)
+
+        # Scroll area
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        # Content widget inside scroll area
+        self.content_widget = QWidget()
+        self.grid_layout = QGridLayout(self.content_widget)
+        self.grid_layout.setContentsMargins(0, 0, 0, 0)
+        self.grid_layout.setSpacing(spacing)
+
+        self.scroll_area.setWidget(self.content_widget)
+        self.container.addWidget(self.scroll_area)
+
+        # Styling
+        self.setObjectName("gallery")
+        self.scroll_area.setObjectName("gallery_border")
+        self.content_widget.setObjectName("gallery_background")
+
+    def add_cell(self, widget):
+        row = self.cell_count // self.columns
+        col = self.cell_count % self.columns
+        self.grid_layout.addWidget(widget, row, col)
+        self.cells.append(widget)
+        self.cell_count += 1
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.update_cell_sizes()
+
+    def update_cell_sizes(self):
+        total_width = self.scroll_area.viewport().width()
+        margins = self.grid_layout.contentsMargins()
+        spacing = self.grid_layout.spacing()
+        available_width = total_width - margins.left() - margins.right() - spacing * (self.columns - 1)
+        self.cell_width = available_width // self.columns
+
+        for cell in self.cells:
+            cell.set_cell_width(self.cell_width)
 
 class InputWithIcon(StyledWidget):
     def __init__(self, placeholder="", icon_path="", height=None, icon_size=16, parent=None):

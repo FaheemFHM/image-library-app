@@ -85,3 +85,24 @@ InputWithIcon QPushButton {
 QDateTimeEdit, QComboBox, QLineEdit, QSpinBox {
 	padding-left: 10px;
 }
+
+#gallery_background {
+	background: #181818;
+}
+
+#gallery_border {
+	border: none;
+}
+
+#cell_image {
+	background: #282828;
+}
+
+#cell_footer {
+	background: #282828;
+}
+
+#cell_id {
+	color: #07e9f5;
+	font-weight: 700;
+}
