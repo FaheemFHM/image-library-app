@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
     QLabel, QPushButton, QLineEdit, QSpinBox, QComboBox, QCheckBox,
     QTextEdit, QScrollArea, QFrame, QStackedWidget,
     QTabWidget, QToolBar, QAction, QSizePolicy, QFileDialog, QMessageBox,
-    QDateTimeEdit
+    QDateTimeEdit, QSlider
 )
 
 from PyQt5.QtGui import (
@@ -18,7 +18,7 @@ from PyQt5.QtGui import (
 )
 
 from PyQt5.QtCore import (
-    Qt, QSize, QTimer, QDateTime, QDate, QTime, QPropertyAnimation, QPoint, QRect, pyqtSignal
+    Qt, QSize, QTimer, QDateTime, QDate, QTime, QPropertyAnimation, QPoint, QRect, QObject, pyqtSignal
 )
 
 def load_stylesheet(path):
@@ -49,6 +49,9 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon("../icons/app_icon.png"))
         self.grid_spacing = 10
 
+        self.do_loop = True
+        self.do_shuffle = False
+
         central_widget = QWidget()
         central_widget.setObjectName("central_widget")
         self.setCentralWidget(central_widget)
@@ -65,11 +68,13 @@ class MainWindow(QMainWindow):
         section.add_widget(TextInput("Enter Query..."), 24)
         section.add_widget(SplitIconToggleButton("Name", "../icons/toggle_off.png", "../icons/toggle_on.png", "ID"), 24)
         self.sidebar1.add_section(section)
+        self.sidebar1.add_spacer(self.grid_spacing)
         
         section = SidebarSection("Sort", 32)
         section.add_widget(Dropdown(["Date", "Name", "ID", "Size", "Height", "Width"]), 24)
         section.add_widget(SplitIconToggleButton("Asc", "../icons/toggle_off.png", "../icons/toggle_on.png", "Desc"), 24)
         self.sidebar1.add_section(section)
+        self.sidebar1.add_spacer(self.grid_spacing)
         
         section = SidebarSection("Filters", 32)
         section.add_subheader("Favourite", 24)
@@ -97,6 +102,7 @@ class MainWindow(QMainWindow):
         section.add_widget(DateTimeInput(False), 24)
         section.add_widget(DateTimeInput(True), 24)
         self.sidebar1.add_section(section)
+        self.sidebar1.add_spacer(self.grid_spacing)
 
         section = SidebarSection("Reset", 32)
         section.add_widget(TextButton("Search"), 24)
@@ -105,9 +111,9 @@ class MainWindow(QMainWindow):
         section.add_widget(TextButton("Tags"), 24)
         section.add_widget(TextButton("All"), 24)
         self.sidebar1.add_section(section)
+        self.sidebar1.add_spacer(self.grid_spacing)
         
         self.sidebar1.add_stretch()
-        central_layout.addWidget(self.sidebar1)
         
         # Sidebar 2
         self.sidebar2 = Sidebar()
@@ -138,14 +144,13 @@ class MainWindow(QMainWindow):
         section.add_widget(InputWithIcon("Add Tag...", "../icons/plus.png", 32, 20))
         self.sidebar2.add_section(section)
 
-        self.sidebar2.add_stretch()
-        
-        central_layout.addWidget(self.sidebar2)
+        #self.sidebar2.add_stretch()
 
         # Media Control Bar
-        self.media_controls = MediaControlBar()
+        self.media_controls = MediaControlBar(do_loop=self.do_loop,
+                                              do_shuffle=self.do_shuffle,
+                                              parent=self)
         self.media_controls.setObjectName("media_control_bar")
-        central_layout.addWidget(self.media_controls)
 
         # Main Section
         self.main_content = StyledWidget()
@@ -163,7 +168,7 @@ class MainWindow(QMainWindow):
         image_files = sorted([
             f for f in os.listdir(media_folder)
             if f.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif"))
-        ])[:29][::-1]  # reversed first 29 files
+        ])[:29][::-1] # reversed first 29 files
 
         for i, filename in enumerate(image_files, start=1):
             full_path = os.path.join(media_folder, filename)
@@ -176,10 +181,59 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(self.gallery)
 
-        # Add main layout to central layout
+        # Slideshow
+        full_image_paths = [os.path.join(media_folder, f) for f in image_files]
+        self.slideshow = SlideShow(image_paths=full_image_paths, interval=100,
+                                   do_loop=self.do_loop, do_shuffle=self.do_shuffle)
+        main_layout.addWidget(self.slideshow)
+
+        # Add to central layout
+        central_layout.addWidget(self.sidebar1)
+        central_layout.addWidget(self.sidebar2)
+        central_layout.addWidget(self.media_controls)
         central_layout.addWidget(self.main_content)
-        
+
+        # Other
+        self.media_controls.update_slider(self.slideshow.get_speed_settings())
         self.showMaximized()
+
+    def slideshow_controls(self, do_stop=False):
+        if do_stop:
+            self.stop()
+        elif not self.slideshow.is_open:
+            self.play()
+        elif self.slideshow.is_playing:
+            self.pause()
+        else:
+            self.resume()
+
+    def play(self):
+        self.gallery.hide()
+        self.slideshow.show()
+        self.sidebars_toggle(True, False)
+        self.slideshow.play()
+        self.media_controls.set_play_icon(False)
+
+    def pause(self):
+        self.slideshow.pause()
+        self.media_controls.set_play_icon(True)
+
+    def stop(self):
+        self.slideshow.stop()
+        self.sidebars_toggle(True, True)
+        self.gallery.show()
+        self.slideshow.hide()
+        self.media_controls.set_play_icon(True)
+
+    def resume(self):
+        self.slideshow.resume()
+        self.media_controls.set_play_icon(False)
+
+    def restart(self):
+        self.slideshow.restart()
+
+    def set_slideshow_speed(self, val):
+        self.slideshow.change_speed(val)
 
     def sidebars_toggle(self, do_set=False, do_show=False):
         if not do_set:
@@ -188,6 +242,224 @@ class MainWindow(QMainWindow):
         for sidebar in [self.sidebar1, self.sidebar2]:
             if sidebar:
                 sidebar.setVisible(do_show)
+
+    def set_loop(self, val):
+        self.slideshow.set_loop(val)
+    
+    def set_shuffle(self, val):
+        self.slideshow.set_shuffle(val)
+
+class SlideShow(QWidget):
+    image_changed = pyqtSignal(str)
+
+    def __init__(self, image_paths=None,
+                 interval=1000, min_speed=250, max_speed=10000, increment=250,
+                 do_loop=True, do_shuffle=False, parent=None):
+        super().__init__(parent)
+        self.original_images = image_paths or []
+        self.shuffled_images = []
+        self.current_index = 0
+        self.interval = interval
+        self.min_speed = min_speed
+        self.max_speed = max_speed
+        self.increment = increment
+        self.loop = do_loop
+        self.shuffle = do_shuffle
+        self.is_open = False
+        self.is_playing = False
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.next_image)
+        self.timer.setInterval(self.interval)
+
+        # Setup UI
+        self.image_label = QLabel(self)
+        self.image_label.setAlignment(Qt.AlignCenter)
+        self.image_label.setScaledContents(False)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.image_label)
+
+        self.image_changed.connect(self.set_image)
+
+        self.setLayout(layout)
+
+        self.hide()
+
+    def get_speed_settings(self):
+        return [self.min_speed, self.max_speed, self.increment, self.interval]
+
+    def set_image(self, image_path):
+        pixmap = QPixmap(image_path)
+        if not pixmap.isNull():
+            self.image_label.setPixmap(pixmap.scaled(
+                self.image_label.size(),
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation))
+        else:
+            self.image_label.clear()
+
+    def resizeEvent(self, event):
+        if not self.image_label.pixmap() is None:
+            pixmap = self.image_label.pixmap()
+            self.image_label.setPixmap(pixmap.scaled(
+                self.image_label.size(),
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation))
+        super().resizeEvent(event)
+    
+    def set_image_paths(self, image_paths):
+        self.original_images = image_paths[:]
+        self.current_index = 0
+        self.shuffled_images = []
+
+    def set_interval(self, ms):
+        ms = max(self.min_speed, min(ms, self.max_speed))
+        self.interval = ms
+        self.timer.setInterval(ms)
+
+    def set_loop(self, loop):
+        self.loop = loop
+
+    def set_shuffle(self, shuffle):
+        self.shuffle = shuffle
+
+    def get_first_image(self):
+        if not self.original_images:
+            return None
+
+        self.current_index = 0
+        if self.shuffle:
+            self.shuffled_images = self.original_images[:]
+            random.shuffle(self.shuffled_images)
+            return self.shuffled_images[self.current_index]
+        else:
+            return self.original_images[self.current_index]
+
+    def play(self):
+        current_image = self.get_first_image()
+        if not current_image:
+            return
+        self.show()
+        self.image_changed.emit(current_image)
+        self.is_open = True
+        self.is_playing = True
+        self.timer.start(self.interval)
+
+    def restart(self):
+        current_image = self.get_first_image()
+        if not current_image:
+            return
+        self.image_changed.emit(current_image)
+        self.is_open = True
+        self.is_playing = True
+        self.timer.start(self.interval)
+
+    def stop(self):
+        self.timer.stop()
+        self.is_open = False
+        self.is_playing = False
+        self.current_index = 0
+        self.hide()
+
+    def pause(self):
+        self.timer.stop()
+        self.is_open = True
+        self.is_playing = False
+
+    def resume(self):
+        if not self.is_playing and self.original_images:
+            self.timer.start()
+            self.is_open = True
+            self.is_playing = True
+
+    def change_speed(self, ms):
+        ms = max(self.min_speed, min(ms, self.max_speed))
+        
+        self.interval = ms
+        self.timer.setInterval(ms)
+        
+        if self.is_playing:
+            remaining = self.timer.remainingTime()
+            
+            if remaining > ms:
+                self.timer.start(ms)
+            else:
+                self.timer.start(remaining)
+
+    def next_image(self):
+        if not self.is_playing or not self.is_open or not self.original_images:
+            return
+
+        images = self.shuffled_images if self.shuffle else self.original_images
+        next_index = self.current_index + 1
+
+        if next_index >= len(images):
+            if self.loop:
+                if self.shuffle:
+                    random.shuffle(self.shuffled_images)
+                    images = self.shuffled_images
+                next_index = 0
+            else:
+                self.window().media_controls.set_play_icon(True)
+                self.stop()
+                return
+
+        self.current_index = next_index
+        current_image = images[self.current_index]
+        self.image_changed.emit(current_image)
+
+class VerticalSlider(StyledWidget):
+    def __init__(self, val_min=250, val_max=10000, val_step=250, val_start=500):
+        super().__init__()
+        
+        layout = QVBoxLayout()
+
+        self.val_step = val_step
+
+        self.label = QLabel()
+        self.label.setAlignment(Qt.AlignCenter)
+
+        self.slider = QSlider(Qt.Vertical)
+        self.slider.setTickPosition(QSlider.TicksBothSides)
+
+        self.update_slider([val_min, val_max, val_step, val_start])
+
+        self.slider.valueChanged.connect(self.change_speed)
+
+        layout.addWidget(self.label)
+        layout.addWidget(self.slider)
+        self.setLayout(layout)
+
+    def format_value(self, val):
+        formatted = f"{val:.2f}"
+        return formatted.rstrip('0').rstrip('.') if '.' in formatted else formatted
+
+    def change_speed(self, value):
+        step = self.val_step
+        snapped_val = round(value / step) * step
+
+        if snapped_val != value:
+            self.slider.blockSignals(True)
+            self.slider.setValue(snapped_val)
+            self.slider.blockSignals(False)
+
+        self.label.setText(self.format_value(snapped_val / 1000))
+
+        self.window().set_slideshow_speed(snapped_val)
+
+    def update_slider(self, settings):
+        val_min, val_max, val_step, val_start = settings
+        
+        self.val_step = val_step
+
+        self.slider.setMinimum(val_min)
+        self.slider.setMaximum(val_max)
+        self.slider.setTickInterval(val_step)
+        self.slider.setSingleStep(val_step)
+        self.slider.setPageStep(val_step)
+        self.slider.setValue(val_start)
 
 class GalleryCell(StyledWidget):
     def __init__(self, image_path, id_text, spacing=10, footer_height=32, parent=None):
@@ -295,7 +567,7 @@ class Gallery(StyledWidget):
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         # Content widget inside scroll area
@@ -622,7 +894,7 @@ class SplitIconToggleButton(QPushButton):
         self.icon_label.setPixmap(icon.pixmap(self.icon_size, self.icon_size))
 
 class MediaControlBar(StyledWidget):
-    def __init__(self, parent=None, width=50):
+    def __init__(self, width=50, do_loop=True, do_shuffle=False, parent=None):
         super().__init__(parent)
 
         self.setProperty("class", "sidebar")
@@ -635,19 +907,24 @@ class MediaControlBar(StyledWidget):
         self.setLayout(layout)
 
         # Button Options
-        button = IconToggleButton("../icons/play.png", "../icons/pause.png")
-        button.clicked.connect(self.do_play)
-        layout.addWidget(button, alignment=Qt.AlignHCenter)
+        self.play_button = IconToggleButton("../icons/play.png", "../icons/pause.png")
+        self.play_button.clicked.connect(lambda: self.window().slideshow_controls(False))
+        layout.addWidget(self.play_button, alignment=Qt.AlignHCenter)
         
         button = IconButton("../icons/stop.png")
-        button.clicked.connect(self.do_stop)
+        button.clicked.connect(lambda: self.window().slideshow_controls(True))
         layout.addWidget(button, alignment=Qt.AlignHCenter)
 
-        button = IconButton("../icons/fast_forwards.png")
+        button = IconButton("../icons/restart.png")
         layout.addWidget(button, alignment=Qt.AlignHCenter)
+        button.clicked.connect(lambda: self.window().restart())
 
-        button = IconButton("../icons/fast_backwards.png")
-        layout.addWidget(button, alignment=Qt.AlignHCenter)
+        self.add_spacer(self.parent.grid_spacing)
+
+        self.slider = VerticalSlider()
+        self.layout().addWidget(self.slider, alignment=Qt.AlignHCenter)
+
+        self.add_spacer(self.parent.grid_spacing)
 
         button = IconButton("../icons/fastest_forwards.png")
         layout.addWidget(button, alignment=Qt.AlignHCenter)
@@ -661,19 +938,36 @@ class MediaControlBar(StyledWidget):
         button = IconButton("../icons/skip_backwards.png")
         layout.addWidget(button, alignment=Qt.AlignHCenter)
 
+        self.add_spacer(self.parent.grid_spacing)
+
         button = IconToggleButton("../icons/loop_off.png", "../icons/loop_on.png")
+        button.setChecked(do_loop)
+        button.update_icon(do_loop)
+        button.toggled.connect(lambda checked: self.window().set_loop(checked))
         layout.addWidget(button, alignment=Qt.AlignHCenter)
 
         button = IconToggleButton("../icons/shuffle_off.png", "../icons/shuffle_on.png")
+        button.setChecked(do_shuffle)
+        button.update_icon(do_shuffle)
+        button.toggled.connect(lambda checked: self.window().set_shuffle(checked))
         layout.addWidget(button, alignment=Qt.AlignHCenter)
 
+        self.add_spacer(self.parent.grid_spacing)
+        
         self.layout().addStretch()
 
-    def do_play(self):
-        self.window().sidebars_toggle(True, False)
+    def add_spacer(self, height=10):
+        spacer = StyledWidget()
+        spacer.setObjectName("media_spacer")
+        spacer.setFixedHeight(height)
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.layout().addWidget(spacer)
 
-    def do_stop(self):
-        self.window().sidebars_toggle(True, True)
+    def set_play_icon(self, val):
+        self.play_button.update_icon(not val)
+
+    def update_slider(self, settings):
+        self.slider.update_slider(settings)
 
 class SidebarSection(StyledWidget):
     def __init__(self, title: str, height=None, spacing=0, parent=None):
@@ -735,6 +1029,13 @@ class Sidebar(StyledWidget):
     def add_section(self, section: SidebarSection):
         self.layout().addWidget(section)
         self.sections.append(section)
+
+    def add_spacer(self, height=10):
+        spacer = StyledWidget()
+        spacer.setObjectName("media_spacer")
+        spacer.setFixedHeight(height)
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.layout().addWidget(spacer)
 
     def add_stretch(self):
         self.layout().addStretch()
