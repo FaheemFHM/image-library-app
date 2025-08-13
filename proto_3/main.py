@@ -179,23 +179,16 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(0)
 
         # Gallery
-        self.gallery = Gallery(columns=4)
+        self.gallery = Gallery(columns=4, parent=self)
         
         self.db = MediaDatabase()
         #self.db.create_tables()
         #self.db.populate_media()
 
-        image_records = self.db.get_first_media(limit=30, media_type='image', get_head=True)
-
-        for record in image_records:
-            self.gallery.add_cell(GalleryCell(record, window=self, parent=self.gallery))
-
         main_layout.addWidget(self.gallery)
 
         # Slideshow
         self.slideshow = SlideShow(
-            image_paths=[record['filepath'] for record in image_records],
-            interval=100,
             do_loop=self.do_loop,
             do_shuffle=self.do_shuffle
         )
@@ -210,6 +203,8 @@ class MainWindow(QMainWindow):
         # Other
         self.media_controls.update_slider(self.slideshow.get_speed_settings())
         self.showMaximized()
+
+        self.gallery.populate_gallery()
     
     def slideshow_controls(self, do_stop=False):
         if do_stop:
@@ -373,6 +368,8 @@ class Gallery(StyledWidget):
         self.cell_count = 0
         self.cells = []
         self.cell_width = 10
+        self.cells_max = 40
+        self.parent = parent
 
         self.search_names = True
         self.sort_asc = True
@@ -380,7 +377,7 @@ class Gallery(StyledWidget):
         self.filters = {
             "id": None,
             "name": None,
-            "is_favourite": None,
+            "is_favourite": True,
             "type": None,
             "format": None,
             "camera_model": None,
@@ -402,8 +399,8 @@ class Gallery(StyledWidget):
 
         self.filters_active = {
             "id": False,
-            "name": True,
-            "is_favourite": False,
+            "name": False,
+            "is_favourite": True,
             "type": False,
             "format": False,
             "camera_model": False,
@@ -442,10 +439,29 @@ class Gallery(StyledWidget):
         self.scroll_area.setObjectName("gallery_border")
         self.content_widget.setObjectName("gallery_background")
 
+    def clear_grid_layout(self, grid_layout):
+        [w.setParent(None) or w.deleteLater() for i in reversed(range(grid_layout.count())) if (w := grid_layout.itemAt(i).widget())]
+
+    def populate_gallery(self):
+        self.clear_grid_layout(self.grid_layout)
+
+        image_records = self.parent.db.apply_filters(self.filters, self.filters_active)
+        
+        i = 0
+        for record in image_records:
+            if i >= self.cells_max:
+                return
+            self.add_cell(GalleryCell(record, window=self.parent, parent=self))
+            i += 1
+
+        if self.cell_count < self.columns:
+            self.grid_layout.setColumnStretch(self.columns, 1)
+            self.grid_layout.setRowStretch(1, 1)
+
     def add_cell(self, widget):
         row = self.cell_count // self.columns
         col = self.cell_count % self.columns
-        self.grid_layout.addWidget(widget, row, col)
+        self.grid_layout.addWidget(widget, row, col, alignment=Qt.AlignTop | Qt.AlignLeft)
         self.cells.append(widget)
         self.cell_count += 1
 
@@ -463,20 +479,14 @@ class Gallery(StyledWidget):
         for cell in self.cells:
             cell.set_cell_width(self.cell_width)
 
-    def set_sort_order(self, is_asc=True):
-        self.sort_asc = is_asc
-
-    def set_search_type(self, is_name=True):
-        self.search_names = is_name
-
 class SlideShow(QWidget):
     image_changed = pyqtSignal(str)
     
-    def __init__(self, image_paths=None,
+    def __init__(self, image_paths=[],
                  interval=1000, min_speed=250, max_speed=10000, increment=250,
                  do_loop=True, do_shuffle=False, parent=None):
         super().__init__(parent)
-        self.original_images = image_paths or []
+        self.original_images = image_paths
         self.shuffled_images = []
         self.current_index = 0
         self.interval = interval
