@@ -1,0 +1,107 @@
+
+/*
+Primary: #181818;
+Secondary: #282828;
+Tertiary: #383838;
+Accent: #07e9f5;
+Text: #ffffff;
+*/
+
+QMainWindow {
+	background-color: #181818;
+}
+
+QLabel {
+	color: #ffffff;
+}
+
+QWidget[class="sidebar"] {
+	background: #282828;
+	color: #ffffff;
+}
+
+QLabel[class="sidebar_header"] {
+	color: #282828;
+	background: #07e9f5;
+	font-weight: 500;
+	font-size: 16px;
+}
+
+QLabel[class="sidebar_sub_header"] {
+	color: #07e9f5;
+	font-weight: 500;
+}
+
+QPushButton {
+	color: #ffffff;
+	background: #282828;
+	border: none;
+	border-radius: 0px;
+	padding: 0px;
+	margin: 0px;
+}
+
+QPushButton:hover, QDateTimeEdit:hover, QComboBox:hover, QLineEdit:hover, QSpinBox:hover {
+	background: #383838;
+}
+
+QDateTimeEdit, QComboBox, QLineEdit, QSpinBox {
+	border: none;
+	background: transparent;
+	color: white;
+}
+
+#tag_list_scroll {
+	border: none;
+}
+
+#tag_list_content {
+	background: #282828;
+}
+
+#tag_row_button {
+	color: #07e9f5;
+	border: 1px solid #07e9f5;
+}
+
+InputWithIcon {
+}
+
+InputWithIcon QLineEdit {
+	padding-left: 5px;
+	border: 1px solid #07e9f5;
+}
+
+InputWithIcon QPushButton {
+	border: 1px solid #07e9f5;
+	border-left: none;
+}
+
+QDateTimeEdit, QComboBox, QLineEdit, QSpinBox {
+	padding-left: 10px;
+}
+
+#gallery_background {
+	background: #181818;
+}
+
+#gallery_border {
+	border: none;
+}
+
+#cell_image {
+	background: #282828;
+}
+
+#cell_footer {
+	background: #282828;
+}
+
+#cell_id {
+	color: #07e9f5;
+	font-weight: 700;
+}
+
+#media_spacer {
+	background: #181818;
+}

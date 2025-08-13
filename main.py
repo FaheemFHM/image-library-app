@@ -1,4 +1,5 @@
 
+
 import sys
 from pathlib import Path
 import random
@@ -12,7 +13,7 @@ from PyQt5.QtWidgets import (
     QLabel, QPushButton, QLineEdit, QSpinBox, QComboBox, QCheckBox,
     QTextEdit, QScrollArea, QFrame, QStackedWidget,
     QTabWidget, QToolBar, QAction, QSizePolicy, QFileDialog, QMessageBox,
-    QDateTimeEdit, QSlider
+    QDateTimeEdit, QSlider, QDialog
 )
 
 from PyQt5.QtGui import (
@@ -20,7 +21,9 @@ from PyQt5.QtGui import (
 )
 
 from PyQt5.QtCore import (
-    Qt, QSize, QTimer, QDateTime, QDate, QTime, QPropertyAnimation, QPoint, QRect, QObject, pyqtSignal
+    Qt, QSize, QTimer, QDateTime, QDate, QTime,
+    QPropertyAnimation, QPoint, QRect, QObject,
+    pyqtSignal
 )
 
 def load_stylesheet(path):
@@ -65,54 +68,76 @@ class MainWindow(QMainWindow):
 
         # Sidebar 1
         self.sidebar1 = Sidebar()
-        
-        section = SidebarSection("Search", 32)
-        section.add_widget(TextInput("Enter Query..."), 24)
-        section.add_widget(SplitIconToggleButton("Name", "../icons/toggle_off.png", "../icons/toggle_on.png", "ID"), 24)
-        self.sidebar1.add_section(section)
+        self.sidebar1.add_header("Search", 32)
+        self.sidebar1.add_widget(TextInput("Enter Query..."), 24)
+        self.sidebar1.add_widget(SplitIconToggleButton("Name", "../icons/toggle_off.png", "../icons/toggle_on.png", "ID"), 24)
         self.sidebar1.add_spacer(self.grid_spacing)
         
-        section = SidebarSection("Sort", 32)
-        section.add_widget(Dropdown(["Date", "Name", "ID", "Size", "Height", "Width"]), 24)
-        section.add_widget(SplitIconToggleButton("Asc", "../icons/toggle_off.png", "../icons/toggle_on.png", "Desc"), 24)
-        self.sidebar1.add_section(section)
+        self.sidebar1.add_header("Sort", 32)
+        self.sidebar1.add_widget(Dropdown(["Date", "Name", "ID", "Size", "Height", "Width"]), 24)
+        self.sidebar1.add_widget(SplitIconToggleButton("Asc", "../icons/toggle_off.png", "../icons/toggle_on.png", "Desc"), 24)
         self.sidebar1.add_spacer(self.grid_spacing)
         
-        section = SidebarSection("Filters", 32)
-        section.add_subheader("Favourite", 24)
-        section.add_widget(Dropdown(["Any", "Favourites", "Non-Favourites"]), 24)
-        section.add_subheader("File Type", 24)
-        section.add_widget(Dropdown(["Any", "Images", "Videos"]), 24)
-        section.add_subheader("Format", 24)
-        section.add_widget(Dropdown(["Any", "PNG", "JPEG", "VIDEO", "MP3"]), 24)
-        section.add_subheader("Camera", 24)
-        section.add_widget(Dropdown(["Any", "Samsung", "Nokia", "Apple"]), 24)
-        section.add_subheader("File Size", 24)
-        section.add_widget(RangeInput(0, 999999999), 24)
-        section.add_subheader("Image Height", 24)
-        section.add_widget(RangeInput(0, 99999), 24)
-        section.add_subheader("Image Width", 24)
-        section.add_widget(RangeInput(0, 99999), 24)
-        section.add_subheader("Times Viewed", 24)
-        section.add_widget(RangeInput(0, 99999999), 24)
-        section.add_subheader("Duration Viewed", 24)
-        section.add_widget(RangeInput(0, 99999999), 24)
-        section.add_subheader("Date Captured", 24)
-        section.add_widget(DateTimeInput(False), 24)
-        section.add_widget(DateTimeInput(True), 24)
-        section.add_subheader("Date Added", 24)
-        section.add_widget(DateTimeInput(False), 24)
-        section.add_widget(DateTimeInput(True), 24)
-        self.sidebar1.add_section(section)
+        self.sidebar1.add_header("Filters", 32)
+        
+        self.sidebar1.add_subheader("Favourite", 24)
+        widget = Dropdown(["Any", "Favourites", "Non-Favourites"])
+        widget.setObjectName("is_favourite")
+        self.sidebar1.add_widget(widget, 24)
+        
+        self.sidebar1.add_subheader("File Type", 24)
+        widget = Dropdown(["Any", "Images", "Videos"])
+        widget.setObjectName("type")
+        self.sidebar1.add_widget(widget, 24)
+        
+        self.sidebar1.add_subheader("Format", 24)
+        widget = Dropdown(["Any", "PNG", "JPEG", "VIDEO", "MP3"])
+        widget.setObjectName("format")
+        self.sidebar1.add_widget(widget, 24)
+        
+        self.sidebar1.add_subheader("Camera", 24)
+        widget = Dropdown(["Any", "Samsung", "Nokia", "Apple"])
+        widget.setObjectName("camera_model")
+        self.sidebar1.add_widget(widget, 24)
+        
+        self.sidebar1.add_subheader("File Size", 24)
+        widget = RangeInput(0, 999999999)
+        widget.setObjectName("filesize")
+        self.sidebar1.add_widget(widget, 24)
+        
+        self.sidebar1.add_subheader("Image Height", 24)
+        widget = RangeInput(0, 99999)
+        widget.setObjectName("height")
+        self.sidebar1.add_widget(widget, 24)
+        
+        self.sidebar1.add_subheader("Image Width", 24)
+        widget = RangeInput(0, 99999)
+        widget.setObjectName("width")
+        self.sidebar1.add_widget(widget, 24)
+        
+        self.sidebar1.add_subheader("Times Viewed", 24)
+        widget = RangeInput(0, 99999999)
+        widget.setObjectName("times_viewed")
+        self.sidebar1.add_widget(widget, 24)
+        
+        self.sidebar1.add_subheader("Duration Viewed", 24)
+        widget = RangeInput(0, 99999999)
+        widget.setObjectName("time_viewed")
+        self.sidebar1.add_widget(widget, 24)
+        
+        self.sidebar1.add_subheader("Date Captured", 24)
+        self.sidebar1.add_widget(DateTimeRangeInput(24))
+        
+        self.sidebar1.add_subheader("Date Added", 24)
+        self.sidebar1.add_widget(DateTimeRangeInput(24))
         self.sidebar1.add_spacer(self.grid_spacing)
-
-        section = SidebarSection("Reset", 32)
-        section.add_widget(TextButton("Search"), 24)
-        section.add_widget(TextButton("Sort"), 24)
-        section.add_widget(TextButton("Filter"), 24)
-        section.add_widget(TextButton("Tags"), 24)
-        section.add_widget(TextButton("All"), 24)
-        self.sidebar1.add_section(section)
+        
+        self.sidebar1.add_header("Reset", 32)
+        self.sidebar1.add_widget(TextButton("Search"), 24)
+        self.sidebar1.add_widget(TextButton("Sort"), 24)
+        self.sidebar1.add_widget(TextButton("Filter"), 24)
+        self.sidebar1.add_widget(TextButton("Tags"), 24)
+        self.sidebar1.add_widget(TextButton("All"), 24)
         self.sidebar1.add_spacer(self.grid_spacing)
         
         self.sidebar1.add_stretch()
@@ -120,7 +145,7 @@ class MainWindow(QMainWindow):
         # Sidebar 2
         self.sidebar2 = Sidebar()
         
-        section = SidebarSection("Tags", 32)
+        self.sidebar2.add_header("Tags", 32)
         tag_list = TagList()
         tag_list.add_tag("Nature")
         tag_list.add_tag("Holiday")
@@ -142,9 +167,8 @@ class MainWindow(QMainWindow):
         tag_list.add_tag("Night")
         tag_list.add_tag("Events")
         tag_list.add_tag("Favorites")
-        section.add_widget(tag_list)
-        section.add_widget(InputWithIcon("Add Tag...", "../icons/plus.png", 32, 20))
-        self.sidebar2.add_section(section)
+        self.sidebar2.add_widget(tag_list)
+        self.sidebar2.add_widget(InputWithIcon("Add Tag...", "../icons/plus.png", 32, 20))
 
         #self.sidebar2.add_stretch()
 
@@ -187,9 +211,9 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.slideshow)
 
         # Add to central layout
+        central_layout.addWidget(self.media_controls)
         central_layout.addWidget(self.sidebar1)
         central_layout.addWidget(self.sidebar2)
-        central_layout.addWidget(self.media_controls)
         central_layout.addWidget(self.main_content)
 
         # Other
@@ -251,9 +275,173 @@ class MainWindow(QMainWindow):
     def toggle_favourite(self, image_id, toggled):
         self.db.toggle_favourite(image_id, toggled)
 
+class GalleryCell(StyledWidget):
+    def __init__(self, record, window, spacing=10, footer_height=32, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_Hover, True)
+        self.setMouseTracking(True)
+
+        self.data = record
+        self.image_path = record['filepath']
+        self.image_id = record['id']
+        self.window = window
+
+        self.pixmap = QPixmap(self.image_path)
+        self.width = 10
+
+        # Main Layout
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(spacing)
+        self.setLayout(layout)
+
+        # Image
+        self.pixmap = QPixmap(self.image_path)
+        self.image_label = QLabel()
+        self.image_label.setPixmap(self.pixmap)
+        self.image_label.setAlignment(Qt.AlignCenter)
+        self.image_label.setFixedSize(self.width, self.width)
+        layout.addWidget(self.image_label)
+
+        # Footer
+        footer = QWidget()
+        self.footer_height = footer_height
+        footer.setFixedHeight(footer_height)
+        footer_layout = QHBoxLayout()
+        footer_layout.setContentsMargins(10, 0, 0, 0)
+        footer_layout.setSpacing(0)
+        footer.setLayout(footer_layout)
+
+        self.label_id = QLabel(str(self.image_id))
+
+        label_spacer = QLabel("     -     ")
+
+        self.label_name = QLabel(Path(self.image_path).name)
+
+        self.edit_button = IconButton("../icons/edit.png", 20, footer_height)
+        self.edit_button.setVisible(False)
+        #self.edit_button.clicked.connect(self.edit_popup)
+
+        self.fav_button = IconToggleButton("../icons/heart_white.png", "../icons/heart_red.png", 24, footer_height)
+        self.fav_button.setVisible(False)
+        self.fav_button.toggled.connect(self.toggle_favourite)
+        if self.data["is_favourite"]:
+            self.fav_button.setChecked(True)
+
+        footer_layout.addWidget(self.label_id)
+        footer_layout.addWidget(label_spacer)
+        footer_layout.addWidget(self.label_name)
+        footer_layout.addStretch()
+        footer_layout.addWidget(self.edit_button)
+        footer_layout.addWidget(self.fav_button)
+
+        layout.addWidget(footer)
+
+        # Styling
+        self.image_label.setObjectName("cell_image")
+        footer.setObjectName("cell_footer")
+        self.label_id.setObjectName("cell_id")
+
+    def enterEvent(self, event):
+        self.check_visibility()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.check_visibility()
+        super().leaveEvent(event)
+
+    def check_visibility(self):
+        hovered = self.underMouse()
+        self.edit_button.setVisible(hovered)
+        self.fav_button.setVisible(hovered or self.fav_button.isChecked())
+        
+    def toggle_favourite(self):
+        self.check_visibility()
+        self.window.toggle_favourite(self.image_id, self.fav_button.isChecked())
+
+    def set_cell_width(self, width):
+        self.width = width
+        self.setFixedWidth(width)
+        image_height = width + self.footer_height
+        self.image_label.setFixedSize(width, image_height)
+
+        if not self.pixmap.isNull():
+            scaled = self.pixmap.scaled(
+                self.image_label.size(),
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation
+            )
+            self.image_label.setPixmap(scaled)
+
+class Gallery(StyledWidget):
+    def __init__(self, columns=3, spacing=10, parent=None):
+        super().__init__(parent)
+
+        self.columns = columns
+        self.spacing = spacing
+        self.cell_count = 0
+        self.cells = []
+        self.cell_width = 10
+
+        self.search_names = True
+        self.sort_asc = True
+
+        # Outer layout
+        self.container = QVBoxLayout(self)
+        self.container.setContentsMargins(0, 0, 0, 0)
+        self.container.setSpacing(0)
+
+        # Scroll area
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        # Content widget inside scroll area
+        self.content_widget = QWidget()
+        self.grid_layout = QGridLayout(self.content_widget)
+        self.grid_layout.setContentsMargins(0, 0, 0, 0)
+        self.grid_layout.setSpacing(spacing)
+
+        self.scroll_area.setWidget(self.content_widget)
+        self.container.addWidget(self.scroll_area)
+
+        # Styling
+        self.setObjectName("gallery")
+        self.scroll_area.setObjectName("gallery_border")
+        self.content_widget.setObjectName("gallery_background")
+
+    def add_cell(self, widget):
+        row = self.cell_count // self.columns
+        col = self.cell_count % self.columns
+        self.grid_layout.addWidget(widget, row, col)
+        self.cells.append(widget)
+        self.cell_count += 1
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.update_cell_sizes()
+
+    def update_cell_sizes(self):
+        total_width = self.scroll_area.viewport().width()
+        margins = self.grid_layout.contentsMargins()
+        spacing = self.grid_layout.spacing()
+        available_width = total_width - margins.left() - margins.right() - spacing * (self.columns - 1)
+        self.cell_width = available_width // self.columns
+
+        for cell in self.cells:
+            cell.set_cell_width(self.cell_width)
+
+    def set_sort_order(self, is_asc=True):
+        self.sort_asc = is_asc
+
+    def set_search_type(self, is_name=True):
+        self.search_names = is_name
+
 class SlideShow(QWidget):
     image_changed = pyqtSignal(str)
-
+    
     def __init__(self, image_paths=None,
                  interval=1000, min_speed=250, max_speed=10000, increment=250,
                  do_loop=True, do_shuffle=False, parent=None):
@@ -463,160 +651,6 @@ class VerticalSlider(StyledWidget):
         self.slider.setPageStep(val_step)
         self.slider.setValue(val_start)
 
-class GalleryCell(StyledWidget):
-    def __init__(self, record, window, spacing=10, footer_height=32, parent=None):
-        super().__init__(parent)
-        self.setAttribute(Qt.WA_Hover, True)
-        self.setMouseTracking(True)
-
-        self.data = record
-        self.image_path = record['filepath']
-        self.image_id = record['id']
-        self.window = window
-
-        self.pixmap = QPixmap(self.image_path)
-        self.width = 10
-
-        # Main Layout
-        layout = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(spacing)
-        self.setLayout(layout)
-
-        # Image
-        self.pixmap = QPixmap(self.image_path)
-        self.image_label = QLabel()
-        self.image_label.setPixmap(self.pixmap)
-        self.image_label.setAlignment(Qt.AlignCenter)
-        self.image_label.setFixedSize(self.width, self.width)
-        layout.addWidget(self.image_label)
-
-        # Footer
-        footer = QWidget()
-        self.footer_height = footer_height
-        footer.setFixedHeight(footer_height)
-        footer_layout = QHBoxLayout()
-        footer_layout.setContentsMargins(10, 0, 0, 0)
-        footer_layout.setSpacing(0)
-        footer.setLayout(footer_layout)
-
-        self.label_id = QLabel(str(self.image_id))
-
-        label_spacer = QLabel("     -     ")
-
-        self.label_name = QLabel(Path(self.image_path).name)
-
-        self.edit_button = IconButton("../icons/edit.png", 20, footer_height)
-        self.edit_button.setVisible(False)
-
-        self.fav_button = IconToggleButton("../icons/heart_white.png", "../icons/heart_red.png", 24, footer_height)
-        self.fav_button.setVisible(False)
-        self.fav_button.toggled.connect(self.toggle_favourite)
-        if self.data["is_favourite"]:
-            self.fav_button.setChecked(True)
-
-        footer_layout.addWidget(self.label_id)
-        footer_layout.addWidget(label_spacer)
-        footer_layout.addWidget(self.label_name)
-        footer_layout.addStretch()
-        footer_layout.addWidget(self.edit_button)
-        footer_layout.addWidget(self.fav_button)
-
-        layout.addWidget(footer)
-
-        # Styling
-        self.image_label.setObjectName("cell_image")
-        footer.setObjectName("cell_footer")
-        self.label_id.setObjectName("cell_id")
-
-    def enterEvent(self, event):
-        self.check_visibility()
-        super().enterEvent(event)
-
-    def leaveEvent(self, event):
-        self.check_visibility()
-        super().leaveEvent(event)
-
-    def check_visibility(self):
-        hovered = self.underMouse()
-        self.edit_button.setVisible(hovered)
-        self.fav_button.setVisible(hovered or self.fav_button.isChecked())
-        
-    def toggle_favourite(self):
-        self.check_visibility()
-        self.window.toggle_favourite(self.image_id, self.fav_button.isChecked())
-
-    def set_cell_width(self, width):
-        self.width = width
-        self.setFixedWidth(width)
-        image_height = width + self.footer_height
-        self.image_label.setFixedSize(width, image_height)
-
-        if not self.pixmap.isNull():
-            scaled = self.pixmap.scaled(
-                self.image_label.size(),
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation
-            )
-            self.image_label.setPixmap(scaled)
-
-class Gallery(StyledWidget):
-    def __init__(self, columns=3, spacing=10, parent=None):
-        super().__init__(parent)
-
-        self.columns = columns
-        self.spacing = spacing
-        self.cell_count = 0
-        self.cells = []
-        self.cell_width = 10
-
-        # Outer layout
-        self.container = QVBoxLayout(self)
-        self.container.setContentsMargins(0, 0, 0, 0)
-        self.container.setSpacing(0)
-
-        # Scroll area
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
-        # Content widget inside scroll area
-        self.content_widget = QWidget()
-        self.grid_layout = QGridLayout(self.content_widget)
-        self.grid_layout.setContentsMargins(0, 0, 0, 0)
-        self.grid_layout.setSpacing(spacing)
-
-        self.scroll_area.setWidget(self.content_widget)
-        self.container.addWidget(self.scroll_area)
-
-        # Styling
-        self.setObjectName("gallery")
-        self.scroll_area.setObjectName("gallery_border")
-        self.content_widget.setObjectName("gallery_background")
-
-    def add_cell(self, widget):
-        row = self.cell_count // self.columns
-        col = self.cell_count % self.columns
-        self.grid_layout.addWidget(widget, row, col)
-        self.cells.append(widget)
-        self.cell_count += 1
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self.update_cell_sizes()
-
-    def update_cell_sizes(self):
-        total_width = self.scroll_area.viewport().width()
-        margins = self.grid_layout.contentsMargins()
-        spacing = self.grid_layout.spacing()
-        available_width = total_width - margins.left() - margins.right() - spacing * (self.columns - 1)
-        self.cell_width = available_width // self.columns
-
-        for cell in self.cells:
-            cell.set_cell_width(self.cell_width)
-
 class InputWithIcon(StyledWidget):
     def __init__(self, placeholder="", icon_path="", height=None, icon_size=16, parent=None):
         super().__init__(parent)
@@ -688,10 +722,11 @@ class TagRow(StyledWidget):
         super().leaveEvent(event)
 
     def toggle_tag_selected(self):
-        if self.tag_button.objectName() == "tag_row_button":
-            self.tag_button.setObjectName("")
-        else:
+        selected = self.tag_button.objectName() != "tag_row_button"
+        if selected:
             self.tag_button.setObjectName("tag_row_button")
+        else:
+            self.tag_button.setObjectName("")
         self.tag_button.style().unpolish(self.tag_button)
         self.tag_button.style().polish(self.tag_button)
 
@@ -768,34 +803,51 @@ class TextButton(StyledButton):
         super().__init__(text=text, parent=parent)
         self.setFixedHeight(28)
 
-class DateTimeInput(QWidget):
-    def __init__(self, use_current_time=True, height=None, parent=None):
+class DateTimeRangeInput(StyledWidget):
+    def __init__(self, height=None, parent=None):
         super().__init__(parent)
-        self.setProperty("class", "datetime_input")
+        self.setProperty("class", "datetime_range_input")
 
-        layout = QHBoxLayout(self)
+        layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        layout.setSpacing(2)
 
-        self.datetime_edit = QDateTimeEdit()
-        self.datetime_edit.setCalendarPopup(True)
+        # --- Start Date/Time ---
+        self.start_input = QDateTimeEdit()
+        self.start_input.setCalendarPopup(True)
         if height is not None:
-            self.datetime_edit.setFixedHeight(height)
+            self.start_input.setFixedHeight(height)
+        self.start_input.setDateTime(QDateTime.currentDateTime())
 
-        default_value = (
-            QDateTime.currentDateTime()
-            if use_current_time
-            else QDateTime(QDate(1950, 1, 1), QTime(0, 0, 0))
-        )
-        self.datetime_edit.setDateTime(default_value)
+        # --- End Date/Time ---
+        self.end_input = QDateTimeEdit()
+        self.end_input.setCalendarPopup(True)
+        if height is not None:
+            self.end_input.setFixedHeight(height)
+        self.end_input.setDateTime(QDateTime.currentDateTime())
+        
+        self.start_input.dateTimeChanged.connect(self._on_change)
+        self.end_input.dateTimeChanged.connect(self._on_change)
 
-        layout.addWidget(self.datetime_edit)
+        layout.addWidget(self.start_input)
+        layout.addWidget(self.end_input)
 
-    def dateTime(self):
-        return self.datetime_edit.dateTime()
+    def _on_change(self, _):
+        if self.start_input.dateTime() > self.end_input.dateTime():
+            if self.sender() is self.start_input:
+                self.end_input.setDateTime(self.start_input.dateTime())
+            else:
+                self.start_input.setDateTime(self.end_input.dateTime())
 
-    def setDateTime(self, datetime_obj):
-        self.datetime_edit.setDateTime(datetime_obj)
+    def get_range(self):
+        return self.start_input.dateTime(), self.end_input.dateTime()
+
+    def set_range(self, start_datetime, end_datetime):
+        self.start_input.setDateTime(start_datetime)
+        self.end_input.setDateTime(end_datetime)
+
+    def is_same(self):
+        return self.start_input.dateTime() == self.end_input.dateTime()
 
 class RangeInput(QWidget):
     def __init__(self, min_val=0, max_val=100, height=None, parent=None):
@@ -822,19 +874,18 @@ class RangeInput(QWidget):
         self.min_input.setValue(min_val)
         self.max_input.setValue(min_val)
 
-        self.min_input.valueChanged.connect(self.on_min_changed)
-        self.max_input.valueChanged.connect(self.on_max_changed)
+        self.min_input.valueChanged.connect(self._on_change)
+        self.max_input.valueChanged.connect(self._on_change)
 
         layout.addWidget(self.min_input)
         layout.addWidget(self.max_input)
 
-    def on_min_changed(self, value):
-        if value > self.max_input.value():
-            self.max_input.setValue(value)
-
-    def on_max_changed(self, value):
-        if value < self.min_input.value():
-            self.min_input.setValue(value)
+    def _on_change(self, _):
+        if self.min_input.value() > self.max_input.value():
+            if self.sender() is self.min_input:
+                self.max_input.setValue(self.min_input.value())
+            else:
+                self.min_input.setValue(self.max_input.value())
 
     def get_range(self):
         return self.min_input.value(), self.max_input.value()
@@ -981,48 +1032,6 @@ class MediaControlBar(StyledWidget):
     def update_slider(self, settings):
         self.slider.update_slider(settings)
 
-class SidebarSection(StyledWidget):
-    def __init__(self, title: str, height=None, spacing=0, parent=None):
-        super().__init__(parent)
-
-        self.setProperty("class", "sidebar_section")
-
-        layout = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(spacing)
-        self.setLayout(layout)
-
-        # Header
-        header = QLabel(title)
-        header.setProperty("class", "sidebar_header")
-        header.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-        if height is not None:
-            header.setFixedHeight(height)
-        layout.addWidget(header)
-
-        # Contents
-        self.content_layout = QVBoxLayout()
-        self.content_layout.setContentsMargins(0, 0, 0, 0)
-        self.content_layout.setSpacing(spacing)
-        layout.addLayout(self.content_layout)
-
-    def add_widget(self, widget, height=None):
-        if height is not None:
-            widget.setFixedHeight(height)
-        self.content_layout.addWidget(widget)
-
-    def add_subheader(self, title, height=None):
-        subheader = QLabel(title)
-        subheader.setProperty("class", "sidebar_sub_header")
-        subheader.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-        if height is not None:
-            subheader.setFixedHeight(height)
-        self.content_layout.addWidget(subheader)
-
-    def add_spacer(self):
-        spacer = QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        self.content_layout.addSpacerItem(spacer)
-
 class Sidebar(StyledWidget):
     def __init__(self, parent=None, width=200, spacing=0):
         super().__init__(parent)
@@ -1036,11 +1045,23 @@ class Sidebar(StyledWidget):
         
         self.setFixedWidth(width)
 
-        self.sections = []
+        self.widgets = []
+    
+    def add_header(self, title, height=None):
+        header = QLabel(title)
+        header.setProperty("class", "sidebar_header")
+        header.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+        if height is not None:
+            header.setFixedHeight(height)
+        self.layout().addWidget(header)
 
-    def add_section(self, section: SidebarSection):
-        self.layout().addWidget(section)
-        self.sections.append(section)
+    def add_subheader(self, title, height=None):
+        subheader = QLabel(title)
+        subheader.setProperty("class", "sidebar_sub_header")
+        subheader.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+        if height is not None:
+            subheader.setFixedHeight(height)
+        self.layout().addWidget(subheader)
 
     def add_spacer(self, height=10):
         spacer = StyledWidget()
@@ -1048,6 +1069,13 @@ class Sidebar(StyledWidget):
         spacer.setFixedHeight(height)
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.layout().addWidget(spacer)
+
+    def add_widget(self, widget, height=None):
+        if height is not None:
+            widget.setFixedHeight(height)
+
+        self.widgets.append(widget)
+        self.layout().addWidget(widget)
 
     def add_stretch(self):
         self.layout().addStretch()
