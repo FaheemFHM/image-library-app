@@ -80,55 +80,46 @@ class MainWindow(QMainWindow):
         
         self.sidebar1.add_header("Filters", 32)
         
-        self.sidebar1.add_subheader("Favourite", 24)
-        widget = Dropdown(["Any", "Favourites", "Non-Favourites"])
-        widget.setObjectName("is_favourite")
+        subheader = self.sidebar1.add_subheader("Favourite", height=24, filter_key="is_favourite")
+        widget = Dropdown(["Any", "Favourites", "Non-Favourites"], filter_key="is_favourite")
         self.sidebar1.add_widget(widget, 24)
         
-        self.sidebar1.add_subheader("File Type", 24)
-        widget = Dropdown(["Any", "Images", "Videos"])
-        widget.setObjectName("type")
+        subheader = self.sidebar1.add_subheader("File Type", height=24, filter_key="type")
+        widget = Dropdown(["Any", "Images", "Videos"], filter_key="type")
         self.sidebar1.add_widget(widget, 24)
         
-        self.sidebar1.add_subheader("Format", 24)
-        widget = Dropdown(["Any", "PNG", "JPEG", "VIDEO", "MP3"])
-        widget.setObjectName("format")
+        subheader = self.sidebar1.add_subheader("Format", height=24, filter_key="format")
+        widget = Dropdown(["Any", "PNG", "JPEG", "VIDEO", "MP3"], filter_key="format")
         self.sidebar1.add_widget(widget, 24)
         
-        self.sidebar1.add_subheader("Camera", 24)
-        widget = Dropdown(["Any", "Samsung", "Nokia", "Apple"])
-        widget.setObjectName("camera_model")
+        subheader = self.sidebar1.add_subheader("Camera", height=24, filter_key="camera_model")
+        widget = Dropdown(["Any", "Samsung", "Nokia", "Apple"], filter_key="camera_model")
         self.sidebar1.add_widget(widget, 24)
         
-        self.sidebar1.add_subheader("File Size", 24)
-        widget = RangeInput(0, 999999999)
-        widget.setObjectName("filesize")
+        subheader = self.sidebar1.add_subheader("File Size", height=24, filter_key="filesize")
+        widget = RangeInput(0, 999999999, filter_key="filesize")
         self.sidebar1.add_widget(widget, 24)
         
-        self.sidebar1.add_subheader("Image Height", 24)
-        widget = RangeInput(0, 99999)
-        widget.setObjectName("height")
+        subheader = self.sidebar1.add_subheader("Image Height", height=24, filter_key="height")
+        widget = RangeInput(0, 99999, filter_key="height")
         self.sidebar1.add_widget(widget, 24)
         
-        self.sidebar1.add_subheader("Image Width", 24)
-        widget = RangeInput(0, 99999)
-        widget.setObjectName("width")
+        subheader = self.sidebar1.add_subheader("Image Width", height=24, filter_key="width")
+        widget = RangeInput(0, 99999, filter_key="width")
         self.sidebar1.add_widget(widget, 24)
         
-        self.sidebar1.add_subheader("Times Viewed", 24)
-        widget = RangeInput(0, 99999999)
-        widget.setObjectName("times_viewed")
+        subheader = self.sidebar1.add_subheader("Times Viewed", height=24, filter_key="times_viewed")
+        widget = RangeInput(0, 99999999, filter_key="times_viewed")
         self.sidebar1.add_widget(widget, 24)
         
-        self.sidebar1.add_subheader("Duration Viewed", 24)
-        widget = RangeInput(0, 99999999)
-        widget.setObjectName("time_viewed")
+        subheader = self.sidebar1.add_subheader("Duration Viewed", height=24, filter_key="time_viewed")
+        widget = RangeInput(0, 99999999, filter_key="time_viewed")
         self.sidebar1.add_widget(widget, 24)
         
-        self.sidebar1.add_subheader("Date Captured", 24)
+        subheader = self.sidebar1.add_subheader("Date Captured", height=24, filter_key="exif_date")
         self.sidebar1.add_widget(DateTimeRangeInput(24))
         
-        self.sidebar1.add_subheader("Date Added", 24)
+        subheader = self.sidebar1.add_subheader("Date Added", height=24, filter_key="added_on")
         self.sidebar1.add_widget(DateTimeRangeInput(24))
         self.sidebar1.add_spacer(self.grid_spacing)
         
@@ -219,7 +210,7 @@ class MainWindow(QMainWindow):
         # Other
         self.media_controls.update_slider(self.slideshow.get_speed_settings())
         self.showMaximized()
-
+    
     def slideshow_controls(self, do_stop=False):
         if do_stop:
             self.stop()
@@ -385,6 +376,45 @@ class Gallery(StyledWidget):
 
         self.search_names = True
         self.sort_asc = True
+
+        self.filters = {
+            "id": None,
+            "name": None,
+            "is_favourite": None,
+            "type": None,
+            "format": None,
+            "camera_model": None,
+            "filesize_min": None,
+            "filesize_max": None,
+            "height_min": None,
+            "height_max": None,
+            "width_min": None,
+            "width_max": None,
+            "times_viewed_min": None,
+            "times_viewed_max": None,
+            "time_viewed_min": None,
+            "time_viewed_max": None,
+            "date_captured_min": None,
+            "date_captured_max": None,
+            "date_added_min": None,
+            "date_added_max": None
+        }
+
+        self.filters_active = {
+            "id": False,
+            "name": True,
+            "is_favourite": False,
+            "type": False,
+            "format": False,
+            "camera_model": False,
+            "filesize": False,
+            "height": False,
+            "width": False,
+            "times_viewed": False,
+            "time_viewed": False,
+            "date_captured": False,
+            "date_added": False
+        }
 
         # Outer layout
         self.container = QVBoxLayout(self)
@@ -772,19 +802,24 @@ class TagList(StyledWidget):
                 widget.deleteLater()
 
 class Dropdown(QComboBox):
-    def __init__(self, items=None, width=None, height=None, parent=None):
+    def __init__(self, items=None, width=None, height=None, filter_key=None, parent=None):
         super().__init__(parent)
         self.setProperty("class", "dropdown")
         self.setCursor(Qt.PointingHandCursor)
-
+        self.filter_key = filter_key
+        
         if items:
             self.addItems(items)
-
         if width:
             self.setFixedWidth(width)
         if height:
             self.setFixedHeight(height)
+        if filter_key is not None:
+            self.currentIndexChanged.connect(self._on_change)
 
+    def _on_change(self, index):
+        value = self.itemText(index)
+        
 class TextInput(QLineEdit):
     def __init__(self, placeholder="", height=None, width=None, parent=None):
         super().__init__(parent)
@@ -804,7 +839,7 @@ class TextButton(StyledButton):
         self.setFixedHeight(28)
 
 class DateTimeRangeInput(StyledWidget):
-    def __init__(self, height=None, parent=None):
+    def __init__(self, height=None, filter_key=None, parent=None):
         super().__init__(parent)
         self.setProperty("class", "datetime_range_input")
 
@@ -846,11 +881,8 @@ class DateTimeRangeInput(StyledWidget):
         self.start_input.setDateTime(start_datetime)
         self.end_input.setDateTime(end_datetime)
 
-    def is_same(self):
-        return self.start_input.dateTime() == self.end_input.dateTime()
-
 class RangeInput(QWidget):
-    def __init__(self, min_val=0, max_val=100, height=None, parent=None):
+    def __init__(self, min_val=0, max_val=100, height=None, filter_key=None, parent=None):
         super().__init__(parent)
         self.setProperty("class", "range_input")
 
@@ -1032,6 +1064,34 @@ class MediaControlBar(StyledWidget):
     def update_slider(self, settings):
         self.slider.update_slider(settings)
 
+class SidebarSubHeader(QPushButton):
+    def __init__(self, title, filter_key="", height=None, parent=None):
+        super().__init__(title, parent)
+        self.filter_key = filter_key
+        self.is_active = False
+
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFlat(True)
+        self.setStyleSheet("text-align: center;")
+        self.setProperty("class", "sidebar_sub_header")
+
+        if height is not None:
+            self.setFixedHeight(height)
+
+        self.clicked.connect(self._on_clicked)
+
+    def _on_clicked(self):
+        self.toggle_active()
+
+    def toggle_active(self):
+        self.is_active = not self.is_active
+        self.setProperty(
+            "class",
+            "sidebar_sub_header_active" if self.is_active else "sidebar_sub_header"
+        )
+        self.style().unpolish(self)
+        self.style().polish(self)
+
 class Sidebar(StyledWidget):
     def __init__(self, parent=None, width=200, spacing=0):
         super().__init__(parent)
@@ -1055,13 +1115,10 @@ class Sidebar(StyledWidget):
             header.setFixedHeight(height)
         self.layout().addWidget(header)
 
-    def add_subheader(self, title, height=None):
-        subheader = QLabel(title)
-        subheader.setProperty("class", "sidebar_sub_header")
-        subheader.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-        if height is not None:
-            subheader.setFixedHeight(height)
+    def add_subheader(self, title, filter_key="", height=None):
+        subheader = SidebarSubHeader(title, filter_key=filter_key)
         self.layout().addWidget(subheader)
+        return subheader
 
     def add_spacer(self, height=10):
         spacer = StyledWidget()
