@@ -29,7 +29,7 @@ class MediaDatabase:
             filepath TEXT NOT NULL UNIQUE,
             filename TEXT,
             type TEXT CHECK(type IN ('image', 'video')) NOT NULL,
-            isFavourite INTEGER DEFAULT 0,
+            is_favourite INTEGER DEFAULT 0,
             width INTEGER,
             height INTEGER,
             filesize INTEGER,
@@ -134,3 +134,10 @@ class MediaDatabase:
         cursor = self.conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM media WHERE type = ?", (media_type,))
         return cursor.fetchone()[0]
+
+    def toggle_favourite(self, image_id, is_favourite):
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            UPDATE media SET is_favourite = ? WHERE id = ?
+        """, (1 if is_favourite else 0, image_id))
+        self.conn.commit()

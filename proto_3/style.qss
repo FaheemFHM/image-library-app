@@ -20,11 +20,6 @@ QWidget[class="sidebar"] {
 	color: #ffffff;
 }
 
-QWidget[class="sidebar_section"] {
-	background: #282828;
-	color: #ffffff;
-}
-
 QLabel[class="sidebar_header"] {
 	color: #282828;
 	background: #07e9f5;
