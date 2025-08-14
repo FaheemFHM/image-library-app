@@ -93,7 +93,7 @@ class MainWindow(QMainWindow):
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("Camera", height=24, filter_key="camera_model")
-        widget = Dropdown(["Any", "Samsung", "Nokia", "Apple"], filter_key="camera_model")
+        widget = Dropdown(["Any", "Samsung", "Nokia 7.2", "Apple"], filter_key="camera_model")
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("File Size", height=24, filter_key="filesize")
@@ -375,12 +375,12 @@ class Gallery(StyledWidget):
         self.sort_asc = True
 
         self.filters = {
-            "id": None,
-            "name": None,
+            "id": 27,
+            "filename": "IMG_20220715_112916.jpg",
             "is_favourite": True,
-            "type": None,
-            "format": None,
-            "camera_model": None,
+            "type": "image",
+            "format": "JPEG",
+            "camera_model": "Nokia 7.2",
             "filesize_min": None,
             "filesize_max": None,
             "height_min": None,
@@ -398,11 +398,11 @@ class Gallery(StyledWidget):
         }
 
         self.filters_active = {
-            "id": False,
-            "name": False,
+            "id": True,
+            "filename": False,
             "is_favourite": True,
             "type": False,
-            "format": False,
+            "format": True,
             "camera_model": False,
             "filesize": False,
             "height": False,

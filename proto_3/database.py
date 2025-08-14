@@ -3,6 +3,7 @@ from pathlib import Path
 import sqlite3
 from datetime import datetime
 from PIL import Image
+import time
 
 DB_PATH = "database.db"
 MEDIA_PATH = Path.cwd() / "../media"
@@ -141,3 +142,42 @@ class MediaDatabase:
             UPDATE media SET is_favourite = ? WHERE id = ?
         """, (1 if is_favourite else 0, image_id))
         self.conn.commit()
+
+    def apply_filters(self, filters, filters_active):
+        cursor = self.conn.cursor()
+        where_clauses = []
+        params = []
+
+        # is_favourite (special boolean filter)
+        if filters_active.get("is_favourite") and filters.get("is_favourite") is not None:
+            where_clauses.append("is_favourite = ?")
+            params.append(1 if filters["is_favourite"] else 0)
+
+        # id (exact match)
+        if filters_active.get("id") and filters.get("id") is not None:
+            where_clauses.append("id = ?")
+            params.append(int(filters["id"]))
+
+        # filename (partial match, case-insensitive)
+        if filters_active.get("name") and filters.get("name"):
+            where_clauses.append("filename LIKE ?")
+            params.append(f"%{filters['name']}%")
+
+        # Simple text filters where "Any" means skip
+        text_fields = ["type", "format", "camera_model"]
+        for field in text_fields:
+            if filters_active.get(field) and filters.get(field) and filters[field] != "Any":
+                where_clauses.append(f"{field} = ?")
+                params.append(filters[field])
+
+        # Build the SQL query
+        sql = "SELECT * FROM media"
+        if where_clauses:
+            sql += " WHERE " + " AND ".join(where_clauses)
+        sql += " ORDER BY id ASC"
+
+        cursor.execute(sql, params)
+        columns = [desc[0] for desc in cursor.description]
+        rows = cursor.fetchall()
+
+        return [dict(zip(columns, row)) for row in rows]
