@@ -148,29 +148,47 @@ class MediaDatabase:
         where_clauses = []
         params = []
 
-        # is_favourite (special boolean filter)
         if filters_active.get("is_favourite") and filters.get("is_favourite") is not None:
             where_clauses.append("is_favourite = ?")
             params.append(1 if filters["is_favourite"] else 0)
 
-        # id (exact match)
         if filters_active.get("id") and filters.get("id") is not None:
             where_clauses.append("id = ?")
             params.append(int(filters["id"]))
 
-        # filename (partial match, case-insensitive)
         if filters_active.get("name") and filters.get("name"):
             where_clauses.append("filename LIKE ?")
             params.append(f"%{filters['name']}%")
 
-        # Simple text filters where "Any" means skip
         text_fields = ["type", "format", "camera_model"]
         for field in text_fields:
             if filters_active.get(field) and filters.get(field) and filters[field] != "Any":
                 where_clauses.append(f"{field} = ?")
                 params.append(filters[field])
 
-        # Build the SQL query
+        range_filters = [
+            ("filesize_min", "filesize_max", "filesize"),
+            ("height_min", "height_max", "height"),
+            ("width_min", "width_max", "width"),
+            ("times_viewed_min", "times_viewed_max", "times_viewed"),
+            ("time_viewed_min", "time_viewed_max", "time_viewed"),
+            ("date_captured_min", "date_captured_max", "exif_date"),
+            ("date_added_min", "date_added_max", "added_on"),
+        ]
+
+        for min_key, max_key, col in range_filters:
+            col_base = col.split("_")[0]
+            if filters_active.get(col_base) or filters_active.get(col):
+                min_val = filters.get(min_key)
+                max_val = filters.get(max_key)
+
+                if min_val is not None:
+                    where_clauses.append(f"{col} >= ?")
+                    params.append(min_val)
+                if max_val is not None:
+                    where_clauses.append(f"{col} <= ?")
+                    params.append(max_val)
+
         sql = "SELECT * FROM media"
         if where_clauses:
             sql += " WHERE " + " AND ".join(where_clauses)
