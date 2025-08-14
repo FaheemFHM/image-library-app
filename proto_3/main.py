@@ -69,8 +69,13 @@ class MainWindow(QMainWindow):
         # Sidebar 1
         self.sidebar1 = Sidebar()
         self.sidebar1.add_header("Search", 32)
-        self.sidebar1.add_widget(TextInput("Enter Query..."), 24)
-        self.sidebar1.add_widget(SplitIconToggleButton("Name", "../icons/toggle_off.png", "../icons/toggle_on.png", "ID"), 24)
+
+        subheader = self.sidebar1.add_subheader("Filename", height=24, filter_key="filename")
+        self.sidebar1.add_widget(TextInput("Enter Query...", filter_key="filename"), 24)
+
+        subheader = self.sidebar1.add_subheader("ID", height=24, filter_key="id")
+        self.sidebar1.add_widget(IntInput(filter_key="id"), 24)
+
         self.sidebar1.add_spacer(self.grid_spacing)
         
         self.sidebar1.add_header("Sort", 32)
@@ -121,6 +126,7 @@ class MainWindow(QMainWindow):
         
         subheader = self.sidebar1.add_subheader("Date Added", height=24, filter_key="added_on")
         self.sidebar1.add_widget(DateTimeRangeInput(24))
+        
         self.sidebar1.add_spacer(self.grid_spacing)
         
         self.sidebar1.add_header("Reset", 32)
@@ -831,12 +837,13 @@ class Dropdown(QComboBox):
         value = self.itemText(index)
         
 class TextInput(QLineEdit):
-    def __init__(self, placeholder="", height=None, width=None, parent=None):
+    def __init__(self, placeholder="", height=None, width=None, filter_key=None, parent=None):
         super().__init__(parent)
         self.setPlaceholderText(placeholder)
         self.setProperty("class", "text_input")
         self.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.setCursor(Qt.IBeamCursor)
+        self.filter_key = filter_key
 
         if width:
             self.setFixedWidth(width)
@@ -894,7 +901,6 @@ class DateTimeRangeInput(StyledWidget):
 class RangeInput(QWidget):
     def __init__(self, min_val=0, max_val=100, height=None, filter_key=None, parent=None):
         super().__init__(parent)
-        self.setProperty("class", "range_input")
 
         self.min_val = min_val
         self.max_val = max_val
@@ -935,6 +941,38 @@ class RangeInput(QWidget):
     def set_range(self, min_value, max_value):
         self.min_input.setValue(min_value)
         self.max_input.setValue(max_value)
+
+class IntInput(QWidget):
+    def __init__(self, min_val=0, max_val=100, height=None, filter_key=None, parent=None):
+        super().__init__(parent)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.setAlignment(Qt.AlignCenter)
+
+        self.input = QSpinBox()
+        self.set_range(min_val, max_val)
+        self.input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        if height is not None:
+            self.input.setFixedHeight(height)
+
+        self.input.setValue(min_val)
+        layout.addWidget(self.input)
+
+    def get_value(self):
+        return self.input.value()
+
+    def set_value(self, value):
+        self.input.setValue(value)
+
+    def set_range(self, min_val=None, max_val=None):
+        self.min_val = min_val if min_val is not None else self.min_val
+        self.max_val = max_val if max_val is not None else self.max_val
+        if self.min_val > self.max_val:
+            self.min_val = self.max_val
+        self.input.setRange(self.min_val, self.max_val)
 
 class IconButton(StyledButton):
     def __init__(self, icon_path, icon_size=28, button_size=50, parent=None):
