@@ -71,9 +71,11 @@ class MainWindow(QMainWindow):
         self.sidebar1.add_header("Search", 32)
 
         subheader = self.sidebar1.add_subheader("Filename", height=24, filter_key="filename")
+        subheader.toggled.connect(self.update_filter)
         self.sidebar1.add_widget(TextInput("Enter Query...", filter_key="filename"), 24)
 
         subheader = self.sidebar1.add_subheader("ID", height=24, filter_key="id")
+        subheader.toggled.connect(self.update_filter)
         self.sidebar1.add_widget(IntInput(filter_key="id"), 24)
 
         self.sidebar1.add_spacer(self.grid_spacing)
@@ -86,45 +88,56 @@ class MainWindow(QMainWindow):
         self.sidebar1.add_header("Filters", 32)
         
         subheader = self.sidebar1.add_subheader("Favourite", height=24, filter_key="is_favourite")
+        subheader.toggled.connect(self.update_filter)
         widget = Dropdown(["Any", "Favourites", "Non-Favourites"], filter_key="is_favourite")
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("File Type", height=24, filter_key="type")
+        subheader.toggled.connect(self.update_filter)
         widget = Dropdown(["Any", "Images", "Videos"], filter_key="type")
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("Format", height=24, filter_key="format")
+        subheader.toggled.connect(self.update_filter)
         widget = Dropdown(["Any", "PNG", "JPEG", "VIDEO", "MP3"], filter_key="format")
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("Camera", height=24, filter_key="camera_model")
-        widget = Dropdown(["Any", "Samsung", "Nokia 7.2", "Apple"], filter_key="camera_model")
+        subheader.toggled.connect(self.update_filter)
+        widget = Dropdown(["Any", "Samsung", "Nokia", "Apple"], filter_key="camera_model")
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("File Size", height=24, filter_key="filesize")
+        subheader.toggled.connect(self.update_filter)
         widget = RangeInput(0, 999999999, filter_key="filesize")
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("Image Height", height=24, filter_key="height")
+        subheader.toggled.connect(self.update_filter)
         widget = RangeInput(0, 99999, filter_key="height")
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("Image Width", height=24, filter_key="width")
+        subheader.toggled.connect(self.update_filter)
         widget = RangeInput(0, 99999, filter_key="width")
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("Times Viewed", height=24, filter_key="times_viewed")
+        subheader.toggled.connect(self.update_filter)
         widget = RangeInput(0, 99999999, filter_key="times_viewed")
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("Duration Viewed", height=24, filter_key="time_viewed")
+        subheader.toggled.connect(self.update_filter)
         widget = RangeInput(0, 99999999, filter_key="time_viewed")
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("Date Captured", height=24, filter_key="date_captured")
+        subheader.toggled.connect(self.update_filter)
         self.sidebar1.add_widget(DateTimeRangeInput(24))
         
         subheader = self.sidebar1.add_subheader("Date Added", height=24, filter_key="date_added")
+        subheader.toggled.connect(self.update_filter)
         self.sidebar1.add_widget(DateTimeRangeInput(24))
         
         self.sidebar1.add_spacer(self.grid_spacing)
@@ -210,7 +223,14 @@ class MainWindow(QMainWindow):
         # Other
         self.media_controls.update_slider(self.slideshow.get_speed_settings())
         self.showMaximized()
+        
+        self.gallery.populate_gallery()
 
+    def update_filter(self, filter_key, value):
+        if filter_key in self.gallery.filters_active:
+            self.gallery.filters_active[filter_key] = value
+        else:
+            print("Filter key does not exist.")
         self.gallery.populate_gallery()
     
     def slideshow_controls(self, do_stop=False):
@@ -355,8 +375,7 @@ class GalleryCell(StyledWidget):
     def set_cell_width(self, width):
         self.width = width
         self.setFixedWidth(width)
-        image_height = width + self.footer_height
-        self.image_label.setFixedSize(width, image_height)
+        self.image_label.setFixedSize(width, width)
 
         if not self.pixmap.isNull():
             scaled = self.pixmap.scaled(
@@ -375,7 +394,7 @@ class Gallery(StyledWidget):
         self.cell_count = 0
         self.cells = []
         self.cell_width = 10
-        self.cells_max = 40
+        self.cells_max = 30
         self.parent = parent
 
         self.search_names = True
@@ -387,7 +406,7 @@ class Gallery(StyledWidget):
             "is_favourite": True,
             "type": "image",
             "format": "JPEG",
-            "camera_model": "Nokia 7.2",
+            "camera_model": "Nokia",
             "filesize_min": 2000000,
             "filesize_max": 3000000,
             "height_min": 2000,
@@ -448,6 +467,8 @@ class Gallery(StyledWidget):
 
     def clear_grid_layout(self, grid_layout):
         [w.setParent(None) or w.deleteLater() for i in reversed(range(grid_layout.count())) if (w := grid_layout.itemAt(i).widget())]
+        self.cell_count = 0
+        self.cells = []
 
     def populate_gallery(self):
         self.clear_grid_layout(self.grid_layout)
@@ -457,13 +478,11 @@ class Gallery(StyledWidget):
         i = 0
         for record in image_records:
             if i >= self.cells_max:
-                return
+                break
             self.add_cell(GalleryCell(record, window=self.parent, parent=self))
             i += 1
-
-        if self.cell_count < self.columns:
-            self.grid_layout.setColumnStretch(self.columns, 1)
-            self.grid_layout.setRowStretch(1, 1)
+        
+        self.update_cell_sizes()
 
     def add_cell(self, widget):
         row = self.cell_count // self.columns
@@ -474,15 +493,17 @@ class Gallery(StyledWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        self.get_cell_sizes()
         self.update_cell_sizes()
-
-    def update_cell_sizes(self):
+        
+    def get_cell_sizes(self):
         total_width = self.scroll_area.viewport().width()
         margins = self.grid_layout.contentsMargins()
         spacing = self.grid_layout.spacing()
         available_width = total_width - margins.left() - margins.right() - spacing * (self.columns - 1)
         self.cell_width = available_width // self.columns
 
+    def update_cell_sizes(self):
         for cell in self.cells:
             cell.set_cell_width(self.cell_width)
 
@@ -1114,6 +1135,8 @@ class MediaControlBar(StyledWidget):
         self.slider.update_slider(settings)
 
 class SidebarSubHeader(QPushButton):
+    toggled = pyqtSignal(str, bool)
+
     def __init__(self, title, filter_key="", height=None, parent=None):
         super().__init__(title, parent)
         self.filter_key = filter_key
@@ -1127,10 +1150,7 @@ class SidebarSubHeader(QPushButton):
         if height is not None:
             self.setFixedHeight(height)
 
-        self.clicked.connect(self._on_clicked)
-
-    def _on_clicked(self):
-        self.toggle_active()
+        self.clicked.connect(self.toggle_active)
 
     def toggle_active(self):
         self.is_active = not self.is_active
@@ -1140,6 +1160,8 @@ class SidebarSubHeader(QPushButton):
         )
         self.style().unpolish(self)
         self.style().polish(self)
+
+        self.toggled.emit(self.filter_key, self.is_active)
 
 class Sidebar(StyledWidget):
     def __init__(self, parent=None, width=200, spacing=0):
@@ -1165,7 +1187,7 @@ class Sidebar(StyledWidget):
         self.layout().addWidget(header)
 
     def add_subheader(self, title, filter_key="", height=None):
-        subheader = SidebarSubHeader(title, filter_key=filter_key)
+        subheader = SidebarSubHeader(title, filter_key=filter_key, parent=self)
         self.layout().addWidget(subheader)
         return subheader
 
