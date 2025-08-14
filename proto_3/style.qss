@@ -113,3 +113,8 @@ QDateTimeEdit, QComboBox, QLineEdit, QSpinBox {
 #media_spacer {
 	background: #181818;
 }
+
+#apply_button {
+	color: #07e9f5;
+	font-weight: 600;
+}

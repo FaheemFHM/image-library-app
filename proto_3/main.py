@@ -143,14 +143,11 @@ class MainWindow(QMainWindow):
         self.sidebar1.add_spacer(self.grid_spacing)
         
         self.sidebar1.add_header("Reset", 32)
-        self.sidebar1.add_widget(TextButton("Search"), 24)
-        self.sidebar1.add_widget(TextButton("Sort"), 24)
-        self.sidebar1.add_widget(TextButton("Filter"), 24)
-        self.sidebar1.add_widget(TextButton("Tags"), 24)
-        self.sidebar1.add_widget(TextButton("All"), 24)
-        self.sidebar1.add_spacer(self.grid_spacing)
-        
-        self.sidebar1.add_stretch()
+        self.sidebar1.add_widget(TextButton("Search", height="expanding"), 24)
+        self.sidebar1.add_widget(TextButton("Sort", height="expanding"), 24)
+        self.sidebar1.add_widget(TextButton("Filter", height="expanding"), 24)
+        self.sidebar1.add_widget(TextButton("Tags", height="expanding"), 24)
+        self.sidebar1.add_widget(TextButton("All", height="expanding"), 24)
         
         # Sidebar 2
         self.sidebar2 = Sidebar()
@@ -180,6 +177,8 @@ class MainWindow(QMainWindow):
         self.sidebar2.add_widget(tag_list)
         self.sidebar2.add_widget(InputWithIcon("Add Tag...", "../icons/plus.png", 32, 20))
 
+        self.sidebar2.add_spacer(self.grid_spacing)
+        
         #self.sidebar2.add_stretch()
 
         # Media Control Bar
@@ -223,6 +222,12 @@ class MainWindow(QMainWindow):
         # Other
         self.media_controls.update_slider(self.slideshow.get_speed_settings())
         self.showMaximized()
+
+        button = TextButton("Apply", height="fixed")
+        button.setObjectName("apply_button")
+        button.setFixedHeight(200)
+        button.clicked.connect(self.gallery.populate_gallery)
+        self.sidebar2.add_widget(button)
         
         self.gallery.populate_gallery()
 
@@ -231,7 +236,6 @@ class MainWindow(QMainWindow):
             self.gallery.filters_active[filter_key] = value
         else:
             print("Filter key does not exist.")
-        self.gallery.populate_gallery()
     
     def slideshow_controls(self, do_stop=False):
         if do_stop:
@@ -873,9 +877,10 @@ class TextInput(QLineEdit):
             self.setFixedHeight(height)
 
 class TextButton(StyledButton):
-    def __init__(self, text, parent=None):
+    def __init__(self, text, height=None, parent=None):
         super().__init__(text=text, parent=parent)
-        self.setFixedHeight(28)
+        if height is not None:
+            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed if height == "fixed" else QSizePolicy.Expanding)
 
 class DateTimeRangeInput(StyledWidget):
     def __init__(self, height=None, filter_key=None, parent=None):
