@@ -121,10 +121,10 @@ class MainWindow(QMainWindow):
         widget = RangeInput(0, 99999999, filter_key="time_viewed")
         self.sidebar1.add_widget(widget, 24)
         
-        subheader = self.sidebar1.add_subheader("Date Captured", height=24, filter_key="exif_date")
+        subheader = self.sidebar1.add_subheader("Date Captured", height=24, filter_key="date_captured")
         self.sidebar1.add_widget(DateTimeRangeInput(24))
         
-        subheader = self.sidebar1.add_subheader("Date Added", height=24, filter_key="added_on")
+        subheader = self.sidebar1.add_subheader("Date Added", height=24, filter_key="date_added")
         self.sidebar1.add_widget(DateTimeRangeInput(24))
         
         self.sidebar1.add_spacer(self.grid_spacing)
@@ -188,6 +188,7 @@ class MainWindow(QMainWindow):
         self.gallery = Gallery(columns=4, parent=self)
         
         self.db = MediaDatabase()
+        #self.db.delete_media_table()
         #self.db.create_tables()
         #self.db.populate_media()
 
@@ -410,7 +411,7 @@ class Gallery(StyledWidget):
             "type": False,
             "format": False,
             "camera_model": False,
-            "filesize": True,
+            "filesize": False,
             "height": False,
             "width": False,
             "times_viewed": False,

@@ -1,4 +1,3 @@
-
 from pathlib import Path
 import sqlite3
 from datetime import datetime
@@ -21,6 +20,14 @@ class MediaDatabase:
         if self.conn:
             self.conn.close()
 
+    def delete_media_table(self):
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute("DROP TABLE IF EXISTS media")
+            self.conn.commit()
+        except sqlite3.Error as e:
+            print(f"Error deleting media table: {e}")
+
     def create_tables(self):
         cursor = self.conn.cursor()
 
@@ -35,11 +42,11 @@ class MediaDatabase:
             height INTEGER,
             filesize INTEGER,
             format TEXT,
-            exif_date TEXT,
             camera_model TEXT,
             times_viewed INTEGER DEFAULT 0,
             time_viewed INTEGER DEFAULT 0,
-            added_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            date_captured TEXT,
+            date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """)
 
@@ -63,10 +70,6 @@ class MediaDatabase:
         self.conn.commit()
 
     def populate_media(self):
-        """
-        Scans media folder and populates the database with image/video metadata.
-        Adds new files only (keeps existing entries).
-        """
         cursor = self.conn.cursor()
         supported_exts = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.mp4', '.avi', '.mov', '.mkv'}
 
@@ -80,11 +83,12 @@ class MediaDatabase:
 
             file_type = "video" if file.suffix.lower() in {'.mp4', '.avi', '.mov', '.mkv'} else "image"
             filesize = file.stat().st_size
-            added_on = datetime.fromtimestamp(file.stat().st_ctime)
+            
+            date_added = datetime.fromtimestamp(file.stat().st_ctime).strftime("%Y-%m-%d %H:%M:%S")
 
             width = height = None
             format_ = None
-            exif_date = None
+            date_captured = None
             camera_model = None
 
             if file_type == "image":
@@ -94,7 +98,7 @@ class MediaDatabase:
                         format_ = img.format
                         exif_data = img._getexif()
                         if exif_data:
-                            exif_date = exif_data.get(36867)
+                            date_captured = exif_data.get(36867)
                             camera_model = exif_data.get(272)
                 except Exception as e:
                     print(f"Metadata error for {file.name}: {e}")
@@ -103,11 +107,11 @@ class MediaDatabase:
                 cursor.execute("""
                     INSERT OR IGNORE INTO media (
                         filepath, filename, type, width, height,
-                        filesize, format, exif_date, camera_model, added_on
+                        filesize, format, date_captured, camera_model, date_added
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     str(file), file.name, file_type, width, height,
-                    filesize, format_, exif_date, camera_model, added_on
+                    filesize, format_, date_captured, camera_model, date_added
                 ))
             except Exception as e:
                 print(f"DB insert error for {file.name}: {e}")
@@ -148,32 +152,37 @@ class MediaDatabase:
         where_clauses = []
         params = []
 
+        # favourite
         if filters_active.get("is_favourite") and filters.get("is_favourite") is not None:
             where_clauses.append("is_favourite = ?")
             params.append(1 if filters["is_favourite"] else 0)
 
+        # id
         if filters_active.get("id") and filters.get("id") is not None:
             where_clauses.append("id = ?")
             params.append(int(filters["id"]))
 
+        # filename
         if filters_active.get("name") and filters.get("name"):
             where_clauses.append("filename LIKE ?")
             params.append(f"%{filters['name']}%")
 
+        # dropdowns
         text_fields = ["type", "format", "camera_model"]
         for field in text_fields:
             if filters_active.get(field) and filters.get(field) and filters[field] != "Any":
                 where_clauses.append(f"{field} = ?")
                 params.append(filters[field])
 
+        # ranges
         range_filters = [
             ("filesize_min", "filesize_max", "filesize"),
             ("height_min", "height_max", "height"),
             ("width_min", "width_max", "width"),
             ("times_viewed_min", "times_viewed_max", "times_viewed"),
             ("time_viewed_min", "time_viewed_max", "time_viewed"),
-            ("date_captured_min", "date_captured_max", "exif_date"),
-            ("date_added_min", "date_added_max", "added_on"),
+            ("date_captured_min", "date_captured_max", "date_captured"),
+            ("date_added_min", "date_added_max", "date_added"),
         ]
 
         for min_key, max_key, col in range_filters:
@@ -189,6 +198,7 @@ class MediaDatabase:
                     where_clauses.append(f"{col} <= ?")
                     params.append(max_val)
 
+        # main query
         sql = "SELECT * FROM media"
         if where_clauses:
             sql += " WHERE " + " AND ".join(where_clauses)
