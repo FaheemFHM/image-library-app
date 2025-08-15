@@ -163,7 +163,7 @@ class MediaDatabase:
             params.append(int(filters["id"]))
 
         # filename
-        if filters_active.get("name") and filters.get("name"):
+        if filters_active.get("name") and filters.get("name") and filters["name"] != "":
             where_clauses.append("filename LIKE ?")
             params.append(f"%{filters['name']}%")
 
