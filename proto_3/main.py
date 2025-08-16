@@ -332,9 +332,10 @@ class MainWindow(QMainWindow):
                 for widget in self.widgets_filter:
                     widget.reset()
             case "tags":
-                print("Reset Tags")
+                for widget in self.tag_list.tags:
+                    widget.reset()
             case "all":
-                for widget in self.widgets_search + self.widgets_sort + self.widgets_filter:
+                for widget in self.widgets_search + self.widgets_sort + self.widgets_filter + self.tag_list.tags:
                     widget.reset()
             case _:
                 print(f"Unknown reset value")
@@ -896,7 +897,9 @@ class TagRow(StyledWidget):
         super().__init__(parent)
         self.setMouseTracking(True)
         self.setObjectName("tag_row")
+        
         self.tag_name = tag_name
+        self.is_active = False
 
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -937,17 +940,23 @@ class TagRow(StyledWidget):
         super().leaveEvent(event)
 
     def toggle_tag_selected(self):
-        selected = self.tag_button.objectName() != "tag_row_button"
-        if selected:
+        self.is_active = self.tag_button.objectName() != "tag_row_button"
+        if self.is_active:
             self.tag_button.setObjectName("tag_row_button")
         else:
             self.tag_button.setObjectName("")
         self.tag_button.style().unpolish(self.tag_button)
         self.tag_button.style().polish(self.tag_button)
 
+    def reset(self):
+        if self.is_active:
+            self.toggle_tag_selected()
+
 class TagList(StyledWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+
+        self.tags = []
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -976,7 +985,8 @@ class TagList(StyledWidget):
 
     def add_tag(self, tag_name, insert_alpha=False):
         tag_row = TagRow(tag_name)
-
+        self.tags.append(tag_row)
+        
         if insert_alpha:
             insert_index = 0
             for i in range(self.content_layout.count() - 1):
@@ -992,13 +1002,6 @@ class TagList(StyledWidget):
             self.content_layout.insertWidget(self.content_layout.count() - 1, tag_row)
 
         return tag_row
-
-    def clear_tags(self):
-        for i in reversed(range(self.content_layout.count() - 1)):
-            item = self.content_layout.takeAt(i)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
 
 class Dropdown(QComboBox):
     on_filter_changed = pyqtSignal(str, object)
