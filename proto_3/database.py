@@ -1,8 +1,8 @@
-
 from pathlib import Path
 import sqlite3
 from datetime import datetime
 from PIL import Image
+import time
 
 DB_PATH = "database.db"
 MEDIA_PATH = Path.cwd() / "../media"
@@ -20,6 +20,14 @@ class MediaDatabase:
         if self.conn:
             self.conn.close()
 
+    def delete_media_table(self):
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute("DROP TABLE IF EXISTS media")
+            self.conn.commit()
+        except sqlite3.Error as e:
+            print(f"Error deleting media table: {e}")
+
     def create_tables(self):
         cursor = self.conn.cursor()
 
@@ -34,11 +42,11 @@ class MediaDatabase:
             height INTEGER,
             filesize INTEGER,
             format TEXT,
-            exif_date TEXT,
             camera_model TEXT,
             times_viewed INTEGER DEFAULT 0,
             time_viewed INTEGER DEFAULT 0,
-            added_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            date_captured TEXT,
+            date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """)
 
@@ -62,10 +70,6 @@ class MediaDatabase:
         self.conn.commit()
 
     def populate_media(self):
-        """
-        Scans media folder and populates the database with image/video metadata.
-        Adds new files only (keeps existing entries).
-        """
         cursor = self.conn.cursor()
         supported_exts = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.mp4', '.avi', '.mov', '.mkv'}
 
@@ -79,11 +83,12 @@ class MediaDatabase:
 
             file_type = "video" if file.suffix.lower() in {'.mp4', '.avi', '.mov', '.mkv'} else "image"
             filesize = file.stat().st_size
-            added_on = datetime.fromtimestamp(file.stat().st_ctime)
+            
+            date_added = datetime.fromtimestamp(file.stat().st_ctime).strftime("%Y-%m-%d %H:%M:%S")
 
             width = height = None
             format_ = None
-            exif_date = None
+            date_captured = None
             camera_model = None
 
             if file_type == "image":
@@ -93,7 +98,7 @@ class MediaDatabase:
                         format_ = img.format
                         exif_data = img._getexif()
                         if exif_data:
-                            exif_date = exif_data.get(36867)
+                            date_captured = exif_data.get(36867)
                             camera_model = exif_data.get(272)
                 except Exception as e:
                     print(f"Metadata error for {file.name}: {e}")
@@ -102,11 +107,11 @@ class MediaDatabase:
                 cursor.execute("""
                     INSERT OR IGNORE INTO media (
                         filepath, filename, type, width, height,
-                        filesize, format, exif_date, camera_model, added_on
+                        filesize, format, date_captured, camera_model, date_added
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     str(file), file.name, file_type, width, height,
-                    filesize, format_, exif_date, camera_model, added_on
+                    filesize, format_, date_captured, camera_model, date_added
                 ))
             except Exception as e:
                 print(f"DB insert error for {file.name}: {e}")
@@ -141,3 +146,94 @@ class MediaDatabase:
             UPDATE media SET is_favourite = ? WHERE id = ?
         """, (1 if is_favourite else 0, image_id))
         self.conn.commit()
+
+    def get_highest_id(self):
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT MAX(id) FROM media")
+        result = cursor.fetchone()
+        return result[0] if result[0] is not None else -1
+
+    def get_unique_values(self, column_name, table="media"):
+        cursor = self.conn.cursor()
+        query = f"SELECT DISTINCT {column_name} FROM {table}"
+        cursor.execute(query)
+        results = cursor.fetchall()
+        return [row[0] for row in results]
+
+    def add_tag(self, tag_name):
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT id FROM tags WHERE name = ?", (tag_name,))
+        if cursor.fetchone() is None:
+            cursor.execute("INSERT INTO tags (name) VALUES (?)", (tag_name,))
+            self.conn.commit()
+            return True
+        return False
+
+    def get_all_tags(self):
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT name FROM tags ORDER BY name ASC")
+        return [row[0] for row in cursor.fetchall()]
+
+    def apply_filters(self, filters, filters_active):
+        cursor = self.conn.cursor()
+        where_clauses = []
+        params = []
+
+        # favourite
+        if filters_active.get("is_favourite") and filters.get("is_favourite") is not None:
+            where_clauses.append("is_favourite = ?")
+            params.append(1 if filters["is_favourite"] else 0)
+
+        # id
+        if filters_active.get("id") and filters.get("id") is not None:
+            where_clauses.append("id = ?")
+            params.append(int(filters["id"]))
+
+        # filename
+        if filters_active.get("name") and filters.get("name") and filters["name"] != "":
+            where_clauses.append("filename LIKE ?")
+            params.append(f"%{filters['name']}%")
+
+        # dropdowns
+        text_fields = ["type", "format", "camera_model"]
+        for field in text_fields:
+            if filters_active.get(field) and filters.get(field) and filters[field] != "Any":
+                where_clauses.append(f"{field} = ?")
+                params.append(filters[field])
+
+        # ranges
+        range_filters = [
+            ("filesize_min", "filesize_max", "filesize"),
+            ("height_min", "height_max", "height"),
+            ("width_min", "width_max", "width"),
+            ("times_viewed_min", "times_viewed_max", "times_viewed"),
+            ("time_viewed_min", "time_viewed_max", "time_viewed"),
+            ("date_captured_min", "date_captured_max", "date_captured"),
+            ("date_added_min", "date_added_max", "date_added"),
+        ]
+
+        for min_key, max_key, col in range_filters:
+            col_base = col.split("_")[0]
+            if filters_active.get(col_base) or filters_active.get(col):
+                min_val = filters.get(min_key)
+                max_val = filters.get(max_key)
+
+                if min_val is not None:
+                    where_clauses.append(f"{col} >= ?")
+                    params.append(min_val)
+                if max_val is not None:
+                    where_clauses.append(f"{col} <= ?")
+                    params.append(max_val)
+
+        # main query
+        sql = "SELECT * FROM media"
+        if where_clauses:
+            sql += " WHERE " + " AND ".join(where_clauses)
+        sql += f" ORDER BY {filters['sort_value']} "
+        sql += "DESC" if filters['sort_dir'] else "ASC"
+
+        cursor.execute(sql, params)
+        columns = [desc[0] for desc in cursor.description]
+        rows = cursor.fetchall()
+
+        return [dict(zip(columns, row)) for row in rows]
