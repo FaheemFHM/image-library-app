@@ -252,6 +252,12 @@ class MainWindow(QMainWindow):
         self.sidebar2.add_widget(widget)
 
         self.sidebar2.add_spacer(self.grid_spacing)
+
+        button = TextButton("Apply", height="fixed")
+        button.setObjectName("apply_button")
+        button.setFixedHeight(200)
+        button.clicked.connect(self.apply_filters)
+        self.sidebar2.add_widget(button)
         
         #self.sidebar2.add_stretch()
 
@@ -292,13 +298,7 @@ class MainWindow(QMainWindow):
         self.media_controls.update_slider(self.slideshow.get_speed_settings())
         self.showMaximized()
 
-        button = TextButton("Apply", height="fixed")
-        button.setObjectName("apply_button")
-        button.setFixedHeight(200)
-        button.clicked.connect(self.gallery.populate_gallery)
-        self.sidebar2.add_widget(button)
-        
-        self.gallery.populate_gallery()
+        self.apply_filters()
 
     def add_tag(self, tag):
         added = self.db.add_tag(tag)
@@ -307,6 +307,10 @@ class MainWindow(QMainWindow):
             self.tag_list.add_tag(tag, insert_alpha=True)
         else:
             print(f"Failed to add tag: {tag}")
+
+    def apply_filters(self):
+        self.gallery.populate_gallery()
+        self.slideshow.set_image_paths(self.gallery.get_image_paths())
 
     def update_filter_active(self, filter_key, value):
         if filter_key in self.gallery.filters_active:
@@ -597,6 +601,12 @@ class Gallery(StyledWidget):
         self.setObjectName("gallery")
         self.scroll_area.setObjectName("gallery_border")
         self.content_widget.setObjectName("gallery_background")
+
+    def get_image_paths(self):
+        paths = []
+        for cell in self.cells:
+            paths.append(cell.image_path)
+        return paths
 
     def clear_grid_layout(self, grid_layout):
         [w.setParent(None) or w.deleteLater() for i in reversed(range(grid_layout.count())) if (w := grid_layout.itemAt(i).widget())]
