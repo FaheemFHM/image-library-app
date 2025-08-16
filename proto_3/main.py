@@ -49,7 +49,6 @@ class StyledButton(QPushButton):
 class MainWindow(QMainWindow):
     def __init__(self, image_folder=None):
         super().__init__()
-        
         self.setWindowTitle("Media Manager")
         self.setWindowIcon(QIcon("../icons/app_icon.png"))
         self.grid_spacing = 10
@@ -66,36 +65,52 @@ class MainWindow(QMainWindow):
         central_layout.setSpacing(self.grid_spacing)
         central_widget.setLayout(central_layout)
 
+        self.widgets_search = []
+        self.widgets_sort = []
+        self.widgets_filter = []
+
+        self.db = MediaDatabase()
+
         # Sidebar 1
         self.sidebar1 = Sidebar()
         self.sidebar1.add_header("Search", 32)
 
         subheader = self.sidebar1.add_subheader("Filename", height=24, filter_key="filename")
+        self.widgets_search.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
         widget = TextInput("Enter Query...", filter_key="filename")
         widget.on_filter_changed.connect(self.update_filter)
+        self.widgets_search.append(widget)
         self.sidebar1.add_widget(widget, 24)
 
         subheader = self.sidebar1.add_subheader("ID", height=24, filter_key="id")
+        self.widgets_search.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
-        widget = IntInput(filter_key="id")
+        widget = IntInput(max_val=999999999, filter_key="id")
         widget.on_filter_changed.connect(self.update_filter)
+        self.widgets_search.append(widget)
         self.sidebar1.add_widget(widget, 24)
 
         self.sidebar1.add_spacer(self.grid_spacing)
         
         self.sidebar1.add_header("Sort", 32)
         
-        widget = Dropdown(["Name", "ID", "Size", "Height", "Width"],
-                          values=["filename", "id", "filesize", "height", "width"],
+        widget = Dropdown(["Name", "ID", "Size", "Height", "Width",
+                           "Times Viewed", "Duration Viewed",
+                           "Date Captured", "Date Added"],
+                          values=["filename", "id", "filesize", "height", "width",
+                                  "times_viewed", "time_viewed",
+                                  "date_captured", "date_added"],
                           filter_key="sort_value")
         widget.on_filter_changed.connect(self.update_filter)
+        self.widgets_sort.append(widget)
         self.sidebar1.add_widget(widget, 24)
         
         widget = SplitIconToggleButton("Asc", "../icons/toggle_off.png",
                                        "../icons/toggle_on.png", "Desc",
                                        filter_key="sort_dir")
         widget.on_filter_changed.connect(self.update_filter)
+        self.widgets_sort.append(widget)
         self.sidebar1.add_widget(widget, 24)
         
         self.sidebar1.add_spacer(self.grid_spacing)
@@ -103,108 +118,151 @@ class MainWindow(QMainWindow):
         self.sidebar1.add_header("Filters", 32)
         
         subheader = self.sidebar1.add_subheader("Favourite", height=24, filter_key="is_favourite")
+        self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
         widget = Dropdown(["Any", "Favourites", "Non-Favourites"],
                           values=[None, True, False],
                           filter_key="is_favourite")
         widget.on_filter_changed.connect(self.update_filter)
+        self.widgets_filter.append(widget)
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("File Type", height=24, filter_key="type")
+        self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
-        widget = Dropdown(["Any", "Images", "Videos"], filter_key="type")
+        my_array = ["Any"] + self.db.get_unique_values("type")
+        my_array = [x for x in my_array if x is not None]
+        widget = Dropdown(my_array, filter_key="type")
         widget.on_filter_changed.connect(self.update_filter)
+        self.widgets_filter.append(widget)
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("Format", height=24, filter_key="format")
+        self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
-        widget = Dropdown(["Any", "PNG", "JPEG", "VIDEO", "MP3"], filter_key="format")
+        my_array = ["Any"] + self.db.get_unique_values("format")
+        my_array = [x for x in my_array if x is not None]
+        widget = Dropdown(my_array, filter_key="format")
         widget.on_filter_changed.connect(self.update_filter)
+        self.widgets_filter.append(widget)
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("Camera", height=24, filter_key="camera_model")
+        self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
-        widget = Dropdown(["Any", "Samsung", "Nokia", "Apple"], filter_key="camera_model")
+        my_array = ["Any"] + self.db.get_unique_values("camera_model")
+        my_array = [x for x in my_array if x is not None]
+        widget = Dropdown(my_array, filter_key="camera_model")
         widget.on_filter_changed.connect(self.update_filter)
+        self.widgets_filter.append(widget)
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("File Size", height=24, filter_key="filesize")
+        self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
         widget = RangeInput(0, 999999999, filter_key="filesize")
         widget.on_filter_changed.connect(self.update_filter)
+        self.widgets_filter.append(widget)
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("Image Height", height=24, filter_key="height")
+        self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
-        widget = RangeInput(0, 99999, filter_key="height")
+        widget = RangeInput(0, 999999999, filter_key="height")
         widget.on_filter_changed.connect(self.update_filter)
+        self.widgets_filter.append(widget)
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("Image Width", height=24, filter_key="width")
+        self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
-        widget = RangeInput(0, 99999, filter_key="width")
+        widget = RangeInput(0, 999999999, filter_key="width")
         widget.on_filter_changed.connect(self.update_filter)
+        self.widgets_filter.append(widget)
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("Times Viewed", height=24, filter_key="times_viewed")
+        self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
-        widget = RangeInput(0, 99999999, filter_key="times_viewed")
+        widget = RangeInput(0, 999999999, filter_key="times_viewed")
         widget.on_filter_changed.connect(self.update_filter)
+        self.widgets_filter.append(widget)
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("Duration Viewed", height=24, filter_key="time_viewed")
+        self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
-        widget = RangeInput(0, 99999999, filter_key="time_viewed")
+        widget = RangeInput(0, 999999999, filter_key="time_viewed")
         widget.on_filter_changed.connect(self.update_filter)
+        self.widgets_filter.append(widget)
         self.sidebar1.add_widget(widget, 24)
         
         subheader = self.sidebar1.add_subheader("Date Captured", height=24, filter_key="date_captured")
+        self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
         widget = DateTimeRangeInput(height=24, filter_key="date_captured")
         widget.on_filter_changed.connect(self.update_filter)
+        self.widgets_filter.append(widget)
         self.sidebar1.add_widget(widget)
         
         subheader = self.sidebar1.add_subheader("Date Added", height=24, filter_key="date_added")
+        self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
         widget = DateTimeRangeInput(height=24, filter_key="date_added")
         widget.on_filter_changed.connect(self.update_filter)
+        self.widgets_filter.append(widget)
         self.sidebar1.add_widget(widget)
         
         self.sidebar1.add_spacer(self.grid_spacing)
         
         self.sidebar1.add_header("Reset", 32)
-        self.sidebar1.add_widget(TextButton("Search", height="expanding"), 24)
-        self.sidebar1.add_widget(TextButton("Sort", height="expanding"), 24)
-        self.sidebar1.add_widget(TextButton("Filter", height="expanding"), 24)
-        self.sidebar1.add_widget(TextButton("Tags", height="expanding"), 24)
-        self.sidebar1.add_widget(TextButton("All", height="expanding"), 24)
+        
+        widget = TextButton("Search", height="expanding")
+        widget.clicked.connect(lambda: self.reset_filters("search"))
+        self.sidebar1.add_widget(widget, 24)
+        
+        widget = TextButton("Sort", height="expanding")
+        widget.clicked.connect(lambda: self.reset_filters("sort"))
+        self.sidebar1.add_widget(widget, 24)
+        
+        widget = TextButton("Filter", height="expanding")
+        widget.clicked.connect(lambda: self.reset_filters("filter"))
+        self.sidebar1.add_widget(widget, 24)
+        
+        widget = TextButton("Tags", height="expanding")
+        widget.clicked.connect(lambda: self.reset_filters("tags"))
+        self.sidebar1.add_widget(widget, 24)
+        
+        widget = TextButton("All", height="expanding")
+        widget.clicked.connect(lambda: self.reset_filters("all"))
+        self.sidebar1.add_widget(widget, 24)
         
         # Sidebar 2
         self.sidebar2 = Sidebar()
         
         self.sidebar2.add_header("Tags", 32)
-        tag_list = TagList()
-        tag_list.add_tag("Nature")
-        tag_list.add_tag("Holiday")
-        tag_list.add_tag("Family")
-        tag_list.add_tag("Friends")
-        tag_list.add_tag("Travel")
-        tag_list.add_tag("Work")
-        tag_list.add_tag("Birthday")
-        tag_list.add_tag("Pets")
-        tag_list.add_tag("Food")
-        tag_list.add_tag("Music")
-        tag_list.add_tag("Sports")
-        tag_list.add_tag("Art")
-        tag_list.add_tag("School")
-        tag_list.add_tag("Beach")
-        tag_list.add_tag("Mountains")
-        tag_list.add_tag("Sunset")
-        tag_list.add_tag("City")
-        tag_list.add_tag("Night")
-        tag_list.add_tag("Events")
-        tag_list.add_tag("Favorites")
-        self.sidebar2.add_widget(tag_list)
+        self.tag_list = TagList()
+        self.tag_list.add_tag("Nature")
+        self.tag_list.add_tag("Holiday")
+        self.tag_list.add_tag("Family")
+        self.tag_list.add_tag("Friends")
+        self.tag_list.add_tag("Travel")
+        self.tag_list.add_tag("Work")
+        self.tag_list.add_tag("Birthday")
+        self.tag_list.add_tag("Pets")
+        self.tag_list.add_tag("Food")
+        self.tag_list.add_tag("Music")
+        self.tag_list.add_tag("Sports")
+        self.tag_list.add_tag("Art")
+        self.tag_list.add_tag("School")
+        self.tag_list.add_tag("Beach")
+        self.tag_list.add_tag("Mountains")
+        self.tag_list.add_tag("Sunset")
+        self.tag_list.add_tag("City")
+        self.tag_list.add_tag("Night")
+        self.tag_list.add_tag("Events")
+        self.tag_list.add_tag("Favourites")
+        self.sidebar2.add_widget(self.tag_list)
         self.sidebar2.add_widget(InputWithIcon("Add Tag...", "../icons/plus.png", 32, 20))
 
         self.sidebar2.add_spacer(self.grid_spacing)
@@ -228,11 +286,6 @@ class MainWindow(QMainWindow):
 
         # Gallery
         self.gallery = Gallery(columns=4, parent=self)
-        
-        self.db = MediaDatabase()
-        #self.db.delete_media_table()
-        #self.db.create_tables()
-        #self.db.populate_media()
 
         main_layout.addWidget(self.gallery)
 
@@ -272,6 +325,25 @@ class MainWindow(QMainWindow):
             self.gallery.filters[filter_key] = value
         else:
             print("Filter key does not exist.")
+
+    def reset_filters(self, val=""):
+        match val:
+            case "search":
+                for widget in self.widgets_search:
+                    widget.reset()
+            case "sort":
+                for widget in self.widgets_sort:
+                    widget.reset()
+            case "filter":
+                for widget in self.widgets_filter:
+                    widget.reset()
+            case "tags":
+                print("Reset Tags")
+            case "all":
+                for widget in self.widgets_search + self.widgets_sort + self.widgets_filter:
+                    widget.reset()
+            case _:
+                print(f"Unknown reset value")
     
     def slideshow_controls(self, do_stop=False):
         if do_stop:
@@ -786,7 +858,8 @@ class VerticalSlider(StyledWidget):
         self.slider.setValue(val_start)
 
 class InputWithIcon(StyledWidget):
-    def __init__(self, placeholder="", icon_path="", height=None, icon_size=16, parent=None):
+    def __init__(self, placeholder="", icon_path="",
+                 height=None, icon_size=16, parent=None):
         super().__init__(parent)
 
         layout = QHBoxLayout()
@@ -908,7 +981,9 @@ class TagList(StyledWidget):
 class Dropdown(QComboBox):
     on_filter_changed = pyqtSignal(str, object)
     
-    def __init__(self, items=None, values=None, width=None, height=None, filter_key=None, parent=None):
+    def __init__(self, items=None, values=None,
+                 width=None, height=None,
+                 filter_key=None, parent=None):
         super().__init__(parent)
         self.setProperty("class", "dropdown")
         self.setCursor(Qt.PointingHandCursor)
@@ -927,11 +1002,16 @@ class Dropdown(QComboBox):
     def _on_change(self, index):
         value = self.itemText(index) if self.values is None else self.values[index]
         self.on_filter_changed.emit(self.filter_key, value)
+
+    def reset(self):
+        self.setCurrentIndex(0)
         
 class TextInput(QLineEdit):
     on_filter_changed = pyqtSignal(str, object)
     
-    def __init__(self, placeholder="", height=None, width=None, filter_key=None, parent=None):
+    def __init__(self, placeholder="",
+                 height=None, width=None,
+                 filter_key=None, parent=None):
         super().__init__(parent)
         self.setPlaceholderText(placeholder)
         self.setProperty("class", "text_input")
@@ -948,6 +1028,9 @@ class TextInput(QLineEdit):
 
     def _on_change(self, text):
         self.on_filter_changed.emit(self.filter_key, text)
+
+    def reset(self):
+        self.clear()
 
 class TextButton(StyledButton):
     def __init__(self, text, height=None, parent=None):
@@ -1002,6 +1085,11 @@ class DateTimeRangeInput(StyledWidget):
         self.start_input.setDateTime(start_datetime)
         self.end_input.setDateTime(end_datetime)
 
+    def reset(self):
+        now = QDateTime.currentDateTime()
+        self.start_input.setDateTime(now)
+        self.end_input.setDateTime(now)
+
 class RangeInput(QWidget):
     on_filter_changed = pyqtSignal(str, object)
     
@@ -1053,12 +1141,17 @@ class RangeInput(QWidget):
         self.min_input.setValue(min_value)
         self.max_input.setValue(max_value)
 
+    def reset(self):
+        self.set_range(self.min_val, self.min_val)
+
 class IntInput(QWidget):
     on_filter_changed = pyqtSignal(str, object)
     
     def __init__(self, min_val=0, max_val=100, height=None, filter_key=None, parent=None):
         super().__init__(parent)
         self.filter_key = filter_key
+        self.min_val = min_val
+        self.max_val = max_val
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1082,15 +1175,15 @@ class IntInput(QWidget):
     def get_value(self):
         return self.input.value()
 
-    def set_value(self, value):
-        self.input.setValue(value)
-
-    def set_range(self, min_val=None, max_val=None):
-        self.min_val = min_val if min_val is not None else self.min_val
-        self.max_val = max_val if max_val is not None else self.max_val
+    def set_range(self, min_value=None, max_value=None):
+        self.min_val = min_value if min_value is not None else self.min_val
+        self.max_val = max_value if max_value is not None else self.max_val
         if self.min_val > self.max_val:
             self.min_val = self.max_val
         self.input.setRange(self.min_val, self.max_val)
+
+    def reset(self):
+        self.input.setValue(self.min_val)
 
 class IconButton(StyledButton):
     def __init__(self, icon_path, icon_size=28, button_size=50, parent=None):
@@ -1114,6 +1207,9 @@ class IconToggleButton(StyledButton):
 
     def update_icon(self, checked):
         self.setIcon(self.icon_on if checked else self.icon_off)
+
+    def reset(self):
+        self.setChecked(False)
 
 class SplitIconToggleButton(QPushButton):
     on_filter_changed = pyqtSignal(str, object)
@@ -1160,6 +1256,9 @@ class SplitIconToggleButton(QPushButton):
         icon = self.icon_on if checked else self.icon_off
         self.icon_label.setPixmap(icon.pixmap(self.icon_size, self.icon_size))
         self.on_filter_changed.emit(self.filter_key, checked)
+
+    def reset(self):
+        self.setChecked(False)
 
 class MediaControlBar(StyledWidget):
     def __init__(self, width=50, do_loop=True, do_shuffle=False, parent=None):
@@ -1265,6 +1364,10 @@ class SidebarSubHeader(QPushButton):
         self.style().polish(self)
 
         self.toggled.emit(self.filter_key, self.is_active)
+
+    def reset(self):
+        if self.is_active:
+            self.toggle_active()
 
 class Sidebar(StyledWidget):
     def __init__(self, parent=None, width=200, spacing=0):

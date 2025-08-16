@@ -147,6 +147,19 @@ class MediaDatabase:
         """, (1 if is_favourite else 0, image_id))
         self.conn.commit()
 
+    def get_highest_id(self):
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT MAX(id) FROM media")
+        result = cursor.fetchone()
+        return result[0] if result[0] is not None else -1
+
+    def get_unique_values(self, column_name):
+        cursor = self.conn.cursor()
+        query = f"SELECT DISTINCT {column_name} FROM media"
+        cursor.execute(query)
+        results = cursor.fetchall()
+        return [row[0] for row in results]
+
     def apply_filters(self, filters, filters_active):
         cursor = self.conn.cursor()
         where_clauses = []
