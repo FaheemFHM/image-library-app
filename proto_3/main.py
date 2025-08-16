@@ -85,8 +85,19 @@ class MainWindow(QMainWindow):
         self.sidebar1.add_spacer(self.grid_spacing)
         
         self.sidebar1.add_header("Sort", 32)
-        self.sidebar1.add_widget(Dropdown(["Date", "Name", "ID", "Size", "Height", "Width"]), 24)
-        self.sidebar1.add_widget(SplitIconToggleButton("Asc", "../icons/toggle_off.png", "../icons/toggle_on.png", "Desc"), 24)
+        
+        widget = Dropdown(["Name", "ID", "Size", "Height", "Width"],
+                          values=["filename", "id", "filesize", "height", "width"],
+                          filter_key="sort_value")
+        widget.on_filter_changed.connect(self.update_filter)
+        self.sidebar1.add_widget(widget, 24)
+        
+        widget = SplitIconToggleButton("Asc", "../icons/toggle_off.png",
+                                       "../icons/toggle_on.png", "Desc",
+                                       filter_key="sort_dir")
+        widget.on_filter_changed.connect(self.update_filter)
+        self.sidebar1.add_widget(widget, 24)
+        
         self.sidebar1.add_spacer(self.grid_spacing)
         
         self.sidebar1.add_header("Filters", 32)
@@ -426,8 +437,7 @@ class Gallery(StyledWidget):
         self.cells_max = 30
         self.parent = parent
 
-        self.search_names = True
-        self.sort_asc = True
+        date_time= QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss")
 
         self.filters = {
             "id": 27,
@@ -449,10 +459,10 @@ class Gallery(StyledWidget):
             "date_captured_min": None,
             "date_captured_max": None,
             "date_added_min": None,
-            "date_added_max": None
+            "date_added_max": None,
+            "sort_value": "id",
+            "sort_dir": False
         }
-
-        date_time= QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss")
 
         self.filters_default = {
             "id": 0,
@@ -474,7 +484,9 @@ class Gallery(StyledWidget):
             "date_captured_min": date_time,
             "date_captured_max": date_time,
             "date_added_min": date_time,
-            "date_added_max": date_time
+            "date_added_max": date_time,
+            "sort_value": "id",
+            "sort_dir": False
         }
 
         self.filters_active = {
@@ -1104,11 +1116,17 @@ class IconToggleButton(StyledButton):
         self.setIcon(self.icon_on if checked else self.icon_off)
 
 class SplitIconToggleButton(QPushButton):
-    def __init__(self, left_text, icon_off_path, icon_on_path, right_text, icon_size=24, height=None, parent=None):
+    on_filter_changed = pyqtSignal(str, object)
+    
+    def __init__(self, left_text, icon_off_path,
+                 icon_on_path, right_text,
+                 icon_size=24, height=None,
+                 filter_key=None, parent=None):
         super().__init__(parent)
         self.setCheckable(True)
         self.setCursor(Qt.PointingHandCursor)
         self.setProperty("class", "split_icon_toggle_button")
+        self.filter_key = filter_key
 
         self.icon_off = QIcon(icon_off_path)
         self.icon_on = QIcon(icon_on_path)
@@ -1141,6 +1159,7 @@ class SplitIconToggleButton(QPushButton):
     def update_icon(self, checked):
         icon = self.icon_on if checked else self.icon_off
         self.icon_label.setPixmap(icon.pixmap(self.icon_size, self.icon_size))
+        self.on_filter_changed.emit(self.filter_key, checked)
 
 class MediaControlBar(StyledWidget):
     def __init__(self, width=50, do_loop=True, do_shuffle=False, parent=None):

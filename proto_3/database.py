@@ -202,7 +202,8 @@ class MediaDatabase:
         sql = "SELECT * FROM media"
         if where_clauses:
             sql += " WHERE " + " AND ".join(where_clauses)
-        sql += " ORDER BY id ASC"
+        sql += f" ORDER BY {filters['sort_value']} "
+        sql += "DESC" if filters['sort_dir'] else "ASC"
 
         cursor.execute(sql, params)
         columns = [desc[0] for desc in cursor.description]
