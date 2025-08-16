@@ -153,12 +153,26 @@ class MediaDatabase:
         result = cursor.fetchone()
         return result[0] if result[0] is not None else -1
 
-    def get_unique_values(self, column_name):
+    def get_unique_values(self, column_name, table="media"):
         cursor = self.conn.cursor()
-        query = f"SELECT DISTINCT {column_name} FROM media"
+        query = f"SELECT DISTINCT {column_name} FROM {table}"
         cursor.execute(query)
         results = cursor.fetchall()
         return [row[0] for row in results]
+
+    def add_tag(self, tag_name):
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT id FROM tags WHERE name = ?", (tag_name,))
+        if cursor.fetchone() is None:
+            cursor.execute("INSERT INTO tags (name) VALUES (?)", (tag_name,))
+            self.conn.commit()
+            return True
+        return False
+
+    def get_all_tags(self):
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT name FROM tags ORDER BY name ASC")
+        return [row[0] for row in cursor.fetchall()]
 
     def apply_filters(self, filters, filters_active):
         cursor = self.conn.cursor()

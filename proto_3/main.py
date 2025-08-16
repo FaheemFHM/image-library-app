@@ -242,28 +242,14 @@ class MainWindow(QMainWindow):
         
         self.sidebar2.add_header("Tags", 32)
         self.tag_list = TagList()
-        self.tag_list.add_tag("Nature")
-        self.tag_list.add_tag("Holiday")
-        self.tag_list.add_tag("Family")
-        self.tag_list.add_tag("Friends")
-        self.tag_list.add_tag("Travel")
-        self.tag_list.add_tag("Work")
-        self.tag_list.add_tag("Birthday")
-        self.tag_list.add_tag("Pets")
-        self.tag_list.add_tag("Food")
-        self.tag_list.add_tag("Music")
-        self.tag_list.add_tag("Sports")
-        self.tag_list.add_tag("Art")
-        self.tag_list.add_tag("School")
-        self.tag_list.add_tag("Beach")
-        self.tag_list.add_tag("Mountains")
-        self.tag_list.add_tag("Sunset")
-        self.tag_list.add_tag("City")
-        self.tag_list.add_tag("Night")
-        self.tag_list.add_tag("Events")
-        self.tag_list.add_tag("Favourites")
+        tags = self.db.get_all_tags()
+        for tag in tags:
+            self.tag_list.add_tag(tag)
         self.sidebar2.add_widget(self.tag_list)
-        self.sidebar2.add_widget(InputWithIcon("Add Tag...", "../icons/plus.png", 32, 20))
+
+        widget = InputWithIcon("Add Tag...", "../icons/plus.png", 32, 20)
+        widget.submit.connect(self.add_tag)
+        self.sidebar2.add_widget(widget)
 
         self.sidebar2.add_spacer(self.grid_spacing)
         
@@ -313,6 +299,14 @@ class MainWindow(QMainWindow):
         self.sidebar2.add_widget(button)
         
         self.gallery.populate_gallery()
+
+    def add_tag(self, tag):
+        added = self.db.add_tag(tag)
+        if added:
+            print(f"Added Tag: {tag}")
+            self.tag_list.add_tag(tag, insert_alpha=True)
+        else:
+            print(f"Failed to add tag: {tag}")
 
     def update_filter_active(self, filter_key, value):
         if filter_key in self.gallery.filters_active:
@@ -858,6 +852,8 @@ class VerticalSlider(StyledWidget):
         self.slider.setValue(val_start)
 
 class InputWithIcon(StyledWidget):
+    submit = pyqtSignal(str)
+    
     def __init__(self, placeholder="", icon_path="",
                  height=None, icon_size=16, parent=None):
         super().__init__(parent)
@@ -882,13 +878,25 @@ class InputWithIcon(StyledWidget):
             self.button.setFixedSize(height, height)
         self.button.setIconSize(QSize(icon_size, icon_size))
         self.button.setProperty("class", "icon_button")
+        self.button.clicked.connect(self._on_submit)
         layout.addWidget(self.button)
 
-class TagRow(StyledWidget):
+    def _on_submit(self):
+        val = self.text_input.text()
+        if val == "":
+            return
+        self.submit.emit(val)
+        self.reset()
+
+    def reset(self):
+        self.text_input.clear()
+
+class TagRow(StyledWidget):    
     def __init__(self, tag_name, height=32, parent=None):
         super().__init__(parent)
         self.setMouseTracking(True)
         self.setObjectName("tag_row")
+        self.tag_name = tag_name
 
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -966,9 +974,23 @@ class TagList(StyledWidget):
         self.content_widget.setObjectName("tag_list_content")
         self.scroll_area.setObjectName("tag_list_scroll")
 
-    def add_tag(self, tag_name):
+    def add_tag(self, tag_name, insert_alpha=False):
         tag_row = TagRow(tag_name)
-        self.content_layout.insertWidget(self.content_layout.count() - 1, tag_row)
+
+        if insert_alpha:
+            insert_index = 0
+            for i in range(self.content_layout.count() - 1):
+                item = self.content_layout.itemAt(i)
+                widget = item.widget()
+                if isinstance(widget, TagRow):
+                    existing_name = widget.tag_name
+                    if existing_name.lower() > tag_name.lower():
+                        break
+                insert_index += 1
+            self.content_layout.insertWidget(insert_index, tag_row)
+        else:
+            self.content_layout.insertWidget(self.content_layout.count() - 1, tag_row)
+
         return tag_row
 
     def clear_tags(self):
