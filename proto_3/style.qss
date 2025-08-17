@@ -118,3 +118,8 @@ QDateTimeEdit, QComboBox, QLineEdit, QSpinBox {
 	color: #07e9f5;
 	font-weight: 600;
 }
+
+#tag_filter_mode {
+	border: 1px solid #07e9f5;
+	border-top: none;
+}

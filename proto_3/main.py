@@ -251,8 +251,8 @@ class MainWindow(QMainWindow):
         self.sidebar2.add_widget(self.tag_filter_mode, 24)
         
         self.tag_list = TagList()
-        tags = self.db.get_all_tags()
-        for tag in tags:
+        self.all_tags = self.db.get_all_tags()
+        for tag in self.all_tags:
             widget = self.tag_list.add_tag(tag)
             widget.on_filter_changed.connect(self.update_filter_tags)
         self.sidebar2.add_widget(self.tag_list)
@@ -288,8 +288,14 @@ class MainWindow(QMainWindow):
 
         # Gallery
         self.gallery = Gallery(columns=4, parent=self)
-
+        self.gallery.edit_cell.connect(self.open_gallery_edit)
         main_layout.addWidget(self.gallery)
+
+        # Gallery Cell Edit
+        self.gallery_edit = GalleryCellEdit(spacing=self.grid_spacing, parent=self)
+        self.gallery_edit.close_edit.connect(self.close_gallery_edit)
+        self.tags_changed = False
+        main_layout.addWidget(self.gallery_edit)
 
         # Slideshow
         self.slideshow = SlideShow(
@@ -310,11 +316,25 @@ class MainWindow(QMainWindow):
 
         self.apply_filters()
 
+    def open_gallery_edit(self, data):
+        self.gallery.hide()
+        self.sidebars_toggle(True, False, False)
+        self.gallery_edit.show()
+        self.gallery_edit.set_data(data, self.tags_changed)
+
+    def close_gallery_edit(self):
+        self.tags_changed = False
+        self.gallery_edit.hide()
+        self.sidebars_toggle(True, True, True)
+        self.gallery.show()
+
     def add_tag(self, tag):
         added = self.db.add_tag(tag)
         if added:
-            self.tag_list.add_tag(tag, insert_alpha=True)
+            widget = self.tag_list.add_tag(tag, insert_alpha=True)
             widget.on_filter_changed.connect(self.update_filter_tags)
+            self.all_tags.append(tag)
+            self.tags_changed = True
         else:
             print(f"Failed to add tag: {tag}")
 
@@ -405,13 +425,16 @@ class MainWindow(QMainWindow):
     def set_slideshow_speed(self, val):
         self.slideshow.change_speed(val)
 
-    def sidebars_toggle(self, do_set=False, do_show=False):
+    def sidebars_toggle(self, do_set=False, do_show=False, media_bar=None):
         if not do_set:
             do_show = not self.sidebar1.isVisible()
 
         for sidebar in [self.sidebar1, self.sidebar2]:
             if sidebar:
                 sidebar.setVisible(do_show)
+
+        if media_bar in [True, False]:
+            self.media_controls.setVisible(media_bar)
 
     def set_loop(self, val):
         self.slideshow.set_loop(val)
@@ -422,7 +445,117 @@ class MainWindow(QMainWindow):
     def toggle_favourite(self, image_id, toggled):
         self.db.toggle_favourite(image_id, toggled)
 
+class GalleryCellEdit(StyledWidget):
+    close_edit = pyqtSignal()
+    
+    def __init__(self, spacing=0, parent=None):
+        super().__init__(parent)
+        self.all_tags = []
+
+        # Main Layout
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(spacing)
+
+        # Image
+        self.image_label = QLabel()
+        self.image_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.image_label.setAlignment(Qt.AlignCenter)
+        self.image_label.setScaledContents(False)
+        self.pixmap = QPixmap()
+
+        # Sidebar
+        self.sidebar = Sidebar()
+
+        # Name Input
+        self.sidebar.add_header("Name", 32)
+        self.input_name = TextInput("Enter Query...", filter_key="filename")
+        self.sidebar.add_widget(self.input_name, 24)
+        
+        self.sidebar.add_spacer(spacing)
+
+        # Tag List
+        self.sidebar.add_header("Tags", 32)
+        self.tag_list = TagList()
+        self.refresh_tags()
+        self.sidebar.add_widget(self.tag_list)
+        
+        self.sidebar.add_spacer(spacing)
+
+        # Button Options
+        self.sidebar.add_header("Options", 32)
+        
+        widget = TextButton("Apply")
+        widget.clicked.connect(self.apply_edits)
+        self.sidebar.add_widget(widget, 24)
+        
+        widget = TextButton("Cancel")
+        widget.clicked.connect(self.cancel_edits)
+        self.sidebar.add_widget(widget, 24)
+
+        # Update Layout
+        layout.addWidget(self.image_label)
+        layout.addWidget(self.sidebar)
+        
+        self.setLayout(layout)
+        self.hide()
+
+    def apply_edits(self):
+        return
+    
+    def cancel_edits(self):
+        self.close_edit.emit()
+
+    def set_data(self, data, tags_changed):
+        self.data = data.copy()
+        
+        self.set_image(data['filepath'])
+        
+        path_object = Path(data['filename'])
+        self.input_name.setText(path_object.stem)
+        self.extension = path_object.suffix
+        
+        if tags_changed:
+            self.refresh_tags()
+        self.toggle_tags()
+
+    def refresh_tags(self):
+        if set(self.all_tags) != set(self.parent().all_tags):
+            self.all_tags = sorted(self.parent().all_tags)
+            self.tag_list.clear_tags()
+            for tag in self.all_tags:
+                self.tag_list.add_tag(tag)
+    
+    def toggle_tags(self):
+        for tag in self.tag_list.tags:
+            tag.set_active(True if tag.tag_name in self.data['tags'] else False)
+    
+    def set_image(self, filepath):
+        pixmap = QPixmap(filepath)
+        if pixmap.isNull():
+            return
+        self.pixmap = pixmap
+        scaled = self.pixmap.scaled(
+            self.image_label.size(),
+            Qt.KeepAspectRatio,
+            Qt.SmoothTransformation
+        )
+        self.image_label.setPixmap(scaled)
+
+    def resizeEvent(self, event):
+        if self.pixmap.isNull():
+            return
+        scaled = self.pixmap.scaled(
+            self.image_label.size(),
+            Qt.KeepAspectRatio,
+            Qt.SmoothTransformation
+        )
+        self.image_label.setPixmap(scaled)
+        super().resizeEvent(event)
+
 class GalleryCell(StyledWidget):
+    edit_cell = pyqtSignal(object)
+    
     def __init__(self, record, window, spacing=10, footer_height=32, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WA_Hover, True)
@@ -463,10 +596,12 @@ class GalleryCell(StyledWidget):
 
         label_spacer = QLabel("     -     ")
 
-        self.label_name = QLabel(Path(self.image_path).name)
+        #self.label_name = QLabel(Path(self.image_path).name)
+        self.label_name = QLabel(self.data['filename'])
 
         self.edit_button = IconButton("../icons/edit.png", 20, footer_height)
         self.edit_button.setVisible(False)
+        self.edit_button.clicked.connect(lambda: self.edit_cell.emit(self.data))
 
         self.fav_button = IconToggleButton("../icons/heart_white.png", "../icons/heart_red.png", 24, footer_height)
         self.fav_button.setVisible(False)
@@ -519,6 +654,8 @@ class GalleryCell(StyledWidget):
             self.image_label.setPixmap(scaled)
 
 class Gallery(StyledWidget):
+    edit_cell = pyqtSignal(object)
+    
     def __init__(self, columns=3, spacing=10, parent=None):
         super().__init__(parent)
 
@@ -659,6 +796,7 @@ class Gallery(StyledWidget):
         self.grid_layout.addWidget(widget, row, col, alignment=Qt.AlignTop | Qt.AlignLeft)
         self.cells.append(widget)
         self.cell_count += 1
+        widget.edit_cell.connect(self.edit_cell.emit)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -959,7 +1097,7 @@ class TagRow(StyledWidget):
         self.tag_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.tag_button.setFixedHeight(height)
         self.tag_button.setCursor(Qt.PointingHandCursor)
-        self.tag_button.clicked.connect(self.toggle_tag_selected)
+        self.tag_button.clicked.connect(self.toggle_active)
         layout.addWidget(self.tag_button)
 
         self.edit_button = QPushButton()
@@ -980,19 +1118,19 @@ class TagRow(StyledWidget):
         self.edit_button.hide()
         super().leaveEvent(event)
 
-    def toggle_tag_selected(self):
-        self.is_active = self.tag_button.objectName() != "tag_row_button"
-        if self.is_active:
-            self.tag_button.setObjectName("tag_row_button")
-        else:
-            self.tag_button.setObjectName("")
+    def toggle_active(self):
+        self.set_active(not self.is_active)
+
+    def set_active(self, val: bool):
+        self.is_active = val
+        self.tag_button.setObjectName("tag_row_button" if self.is_active else "")
         self.tag_button.style().unpolish(self.tag_button)
         self.tag_button.style().polish(self.tag_button)
+        self.tag_button.update()
         self.on_filter_changed.emit(self.tag_name, self.is_active)
 
     def reset(self):
-        if self.is_active:
-            self.toggle_tag_selected()
+        self.set_active(False)
 
 class TagList(StyledWidget):
     def __init__(self, parent=None):
@@ -1044,6 +1182,14 @@ class TagList(StyledWidget):
             self.content_layout.insertWidget(self.content_layout.count() - 1, tag_row)
 
         return tag_row
+
+    def clear_tags(self):
+        for i in reversed(range(self.content_layout.count() - 1)):  
+            item = self.content_layout.itemAt(i)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+        self.tags.clear()
 
 class Dropdown(QComboBox):
     on_filter_changed = pyqtSignal(str, object)
