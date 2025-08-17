@@ -244,7 +244,8 @@ class MainWindow(QMainWindow):
         self.tag_list = TagList()
         tags = self.db.get_all_tags()
         for tag in tags:
-            self.tag_list.add_tag(tag)
+            widget = self.tag_list.add_tag(tag)
+            widget.on_filter_changed.connect(self.update_filter_tags)
         self.sidebar2.add_widget(self.tag_list)
 
         widget = InputWithIcon("Add Tag...", "../icons/plus.png", 32, 20)
@@ -305,10 +306,12 @@ class MainWindow(QMainWindow):
         if added:
             print(f"Added Tag: {tag}")
             self.tag_list.add_tag(tag, insert_alpha=True)
+            widget.on_filter_changed.connect(self.update_filter_tags)
         else:
             print(f"Failed to add tag: {tag}")
 
     def apply_filters(self):
+        print("apply filters")
         self.gallery.populate_gallery()
         self.slideshow.set_image_paths(self.gallery.get_image_paths())
 
@@ -323,6 +326,17 @@ class MainWindow(QMainWindow):
             self.gallery.filters[filter_key] = value
         else:
             print("Filter key does not exist.")
+            
+    def update_filter_tags(self, tag, is_active):
+        tags = self.gallery.filters.setdefault("tags", [])
+        print(tag, is_active)
+
+        if is_active:
+            if tag not in tags:
+                tags.append(tag)
+        else:
+            if tag in tags:
+                tags.remove(tag)
 
     def reset_filters(self, val=""):
         match val:
@@ -371,6 +385,7 @@ class MainWindow(QMainWindow):
         self.slideshow.hide()
         self.gallery.show()
         self.media_controls.set_play_icon(True)
+        #self.gallery.resize()
 
     def resume(self):
         self.slideshow.resume()
@@ -444,7 +459,6 @@ class GalleryCell(StyledWidget):
 
         self.edit_button = IconButton("../icons/edit.png", 20, footer_height)
         self.edit_button.setVisible(False)
-        #self.edit_button.clicked.connect(self.edit_popup)
 
         self.fav_button = IconToggleButton("../icons/heart_white.png", "../icons/heart_red.png", 24, footer_height)
         self.fav_button.setVisible(False)
@@ -532,7 +546,9 @@ class Gallery(StyledWidget):
             "date_added_min": None,
             "date_added_max": None,
             "sort_value": "id",
-            "sort_dir": False
+            "sort_dir": False,
+            "tags": [],
+            "tag_mode": "any"
         }
 
         self.filters_default = {
@@ -557,7 +573,9 @@ class Gallery(StyledWidget):
             "date_added_min": date_time,
             "date_added_max": date_time,
             "sort_value": "id",
-            "sort_dir": False
+            "sort_dir": False,
+            "tags": [],
+            "tag_mode": "any"
         }
 
         self.filters_active = {
@@ -617,7 +635,9 @@ class Gallery(StyledWidget):
         self.clear_grid_layout(self.grid_layout)
 
         image_records = self.parent.db.apply_filters(self.filters, self.filters_active)
-        
+        print(image_records[0])
+        print(len(image_records))
+        print("#################\n")
         i = 0
         for record in image_records:
             if i >= self.cells_max:
@@ -636,6 +656,9 @@ class Gallery(StyledWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        self.resize()
+
+    def resize(self):
         self.get_cell_sizes()
         self.update_cell_sizes()
         
@@ -902,7 +925,9 @@ class InputWithIcon(StyledWidget):
     def reset(self):
         self.text_input.clear()
 
-class TagRow(StyledWidget):    
+class TagRow(StyledWidget):
+    on_filter_changed = pyqtSignal(str, bool)
+    
     def __init__(self, tag_name, height=32, parent=None):
         super().__init__(parent)
         self.setMouseTracking(True)
@@ -957,6 +982,7 @@ class TagRow(StyledWidget):
             self.tag_button.setObjectName("")
         self.tag_button.style().unpolish(self.tag_button)
         self.tag_button.style().polish(self.tag_button)
+        self.on_filter_changed.emit(self.tag_name, self.is_active)
 
     def reset(self):
         if self.is_active:

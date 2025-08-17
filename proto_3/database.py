@@ -28,6 +28,13 @@ class MediaDatabase:
         except sqlite3.Error as e:
             print(f"Error deleting media table: {e}")
 
+    def clear_table(self, table_name, reset_id=True):
+        cursor = self.conn.cursor()
+        cursor.execute(f"DELETE FROM {table_name}")
+        if reset_id:
+            cursor.execute("DELETE FROM sqlite_sequence WHERE name = ?", (table_name,))
+        self.conn.commit()
+
     def create_tables(self):
         cursor = self.conn.cursor()
 
@@ -174,6 +181,46 @@ class MediaDatabase:
         cursor.execute("SELECT name FROM tags ORDER BY name ASC")
         return [row[0] for row in cursor.fetchall()]
 
+    def add_tags_to_image(self, image_id, tag_names):
+        cursor = self.conn.cursor()
+
+        for tag_name in tag_names:
+            cursor.execute("SELECT id FROM tags WHERE name = ?", (tag_name,))
+            tag_row = cursor.fetchone()
+            
+            if tag_row:
+                tag_id = tag_row[0]
+            else:
+                cursor.execute("INSERT INTO tags (name) VALUES (?)", (tag_name,))
+                tag_id = cursor.lastrowid
+
+            cursor.execute("""
+                INSERT OR IGNORE INTO media_tags (media_id, tag_id)
+                VALUES (?, ?)
+            """, (image_id, tag_id))
+
+        self.conn.commit()
+
+    def add_tag_to_images(self, tag_name, image_ids):
+        cursor = self.conn.cursor()
+        
+        cursor.execute("SELECT id FROM tags WHERE name = ?", (tag_name,))
+        tag_row = cursor.fetchone()
+        
+        if tag_row:
+            tag_id = tag_row[0]
+        else:
+            cursor.execute("INSERT INTO tags (name) VALUES (?)", (tag_name,))
+            tag_id = cursor.lastrowid
+
+        for image_id in image_ids:
+            cursor.execute("""
+                INSERT OR IGNORE INTO media_tags (media_id, tag_id)
+                VALUES (?, ?)
+            """, (image_id, tag_id))
+
+        self.conn.commit()
+
     def apply_filters(self, filters, filters_active):
         cursor = self.conn.cursor()
         where_clauses = []
@@ -181,24 +228,24 @@ class MediaDatabase:
 
         # favourite
         if filters_active.get("is_favourite") and filters.get("is_favourite") is not None:
-            where_clauses.append("is_favourite = ?")
+            where_clauses.append("m.is_favourite = ?")
             params.append(1 if filters["is_favourite"] else 0)
 
         # id
         if filters_active.get("id") and filters.get("id") is not None:
-            where_clauses.append("id = ?")
+            where_clauses.append("m.id = ?")
             params.append(int(filters["id"]))
 
         # filename
         if filters_active.get("name") and filters.get("name") and filters["name"] != "":
-            where_clauses.append("filename LIKE ?")
+            where_clauses.append("m.filename LIKE ?")
             params.append(f"%{filters['name']}%")
 
         # dropdowns
         text_fields = ["type", "format", "camera_model"]
         for field in text_fields:
             if filters_active.get(field) and filters.get(field) and filters[field] != "Any":
-                where_clauses.append(f"{field} = ?")
+                where_clauses.append(f"m.{field} = ?")
                 params.append(filters[field])
 
         # ranges
@@ -211,7 +258,6 @@ class MediaDatabase:
             ("date_captured_min", "date_captured_max", "date_captured"),
             ("date_added_min", "date_added_max", "date_added"),
         ]
-
         for min_key, max_key, col in range_filters:
             col_base = col.split("_")[0]
             if filters_active.get(col_base) or filters_active.get(col):
@@ -219,21 +265,76 @@ class MediaDatabase:
                 max_val = filters.get(max_key)
 
                 if min_val is not None:
-                    where_clauses.append(f"{col} >= ?")
+                    where_clauses.append(f"m.{col} >= ?")
                     params.append(min_val)
                 if max_val is not None:
-                    where_clauses.append(f"{col} <= ?")
+                    where_clauses.append(f"m.{col} <= ?")
                     params.append(max_val)
+        
+        # tags
+        if filters.get("tags") and len(filters["tags"]) > 0:
+            tag_names = filters["tags"]
+            tag_mode = filters.get("tag_mode", "any")
+            placeholders = ",".join("?" for _ in tag_names)
+
+            match tag_mode:
+                case "any":
+                    where_clauses.append(f"""
+                        m.id IN (
+                            SELECT media_id FROM media_tags
+                            JOIN tags ON media_tags.tag_id = tags.id
+                            WHERE tags.name IN ({placeholders})
+                        )
+                    """)
+                    params.extend(tag_names)
+
+                case "all":
+                    where_clauses.append(f"""
+                        m.id IN (
+                            SELECT media_id FROM media_tags
+                            JOIN tags ON media_tags.tag_id = tags.id
+                            WHERE tags.name IN ({placeholders})
+                            GROUP BY media_id
+                            HAVING COUNT(DISTINCT tags.name) = {len(tag_names)}
+                        )
+                    """)
+                    params.extend(tag_names)
+
+                case "none":
+                    where_clauses.append(f"""
+                        m.id NOT IN (
+                            SELECT media_id FROM media_tags
+                            JOIN tags ON media_tags.tag_id = tags.id
+                            WHERE tags.name IN ({placeholders})
+                        )
+                    """)
+                    params.extend(tag_names)
 
         # main query
-        sql = "SELECT * FROM media"
+        sql = """
+            SELECT m.*, GROUP_CONCAT(t.name, ',') as tags
+            FROM media m
+            LEFT JOIN media_tags mt ON m.id = mt.media_id
+            LEFT JOIN tags t ON mt.tag_id = t.id
+        """
         if where_clauses:
             sql += " WHERE " + " AND ".join(where_clauses)
+        sql += " GROUP BY m.id"
         sql += f" ORDER BY {filters['sort_value']} "
         sql += "DESC" if filters['sort_dir'] else "ASC"
+
+        print("Attempt sql")
 
         cursor.execute(sql, params)
         columns = [desc[0] for desc in cursor.description]
         rows = cursor.fetchall()
 
-        return [dict(zip(columns, row)) for row in rows]
+        print("Done sql")
+
+        results = []
+        for row in rows:
+            row_dict = dict(zip(columns, row))
+            row_dict["tags"] = row_dict["tags"].split(",") if row_dict["tags"] else []
+            results.append(row_dict)
+
+        return results
