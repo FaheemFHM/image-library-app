@@ -70,6 +70,7 @@ class MainWindow(QMainWindow):
         self.widgets_filter = []
 
         self.db = MediaDatabase()
+        self.db.add_tag_to_images("Landscape", [4, 5, 6, 7])
 
         # Sidebar 1
         self.sidebar1 = Sidebar()
@@ -241,6 +242,14 @@ class MainWindow(QMainWindow):
         self.sidebar2 = Sidebar()
         
         self.sidebar2.add_header("Tags", 32)
+
+        self.tag_filter_mode = Dropdown(["Any", "All", "Exact", "None"],
+                          values=["any", "all", "exact", "none"],
+                          filter_key="tag_mode")
+        self.tag_filter_mode.on_filter_changed.connect(self.update_filter)
+        self.tag_filter_mode.setObjectName("tag_filter_mode")
+        self.sidebar2.add_widget(self.tag_filter_mode, 24)
+        
         self.tag_list = TagList()
         tags = self.db.get_all_tags()
         for tag in tags:
@@ -304,14 +313,12 @@ class MainWindow(QMainWindow):
     def add_tag(self, tag):
         added = self.db.add_tag(tag)
         if added:
-            print(f"Added Tag: {tag}")
             self.tag_list.add_tag(tag, insert_alpha=True)
             widget.on_filter_changed.connect(self.update_filter_tags)
         else:
             print(f"Failed to add tag: {tag}")
 
     def apply_filters(self):
-        print("apply filters")
         self.gallery.populate_gallery()
         self.slideshow.set_image_paths(self.gallery.get_image_paths())
 
@@ -329,7 +336,6 @@ class MainWindow(QMainWindow):
             
     def update_filter_tags(self, tag, is_active):
         tags = self.gallery.filters.setdefault("tags", [])
-        print(tag, is_active)
 
         if is_active:
             if tag not in tags:
@@ -352,9 +358,11 @@ class MainWindow(QMainWindow):
             case "tags":
                 for widget in self.tag_list.tags:
                     widget.reset()
+                self.tag_filter_mode.reset()
             case "all":
                 for widget in self.widgets_search + self.widgets_sort + self.widgets_filter + self.tag_list.tags:
                     widget.reset()
+                self.tag_filter_mode.reset()
             case _:
                 print(f"Unknown reset value")
     
@@ -635,9 +643,7 @@ class Gallery(StyledWidget):
         self.clear_grid_layout(self.grid_layout)
 
         image_records = self.parent.db.apply_filters(self.filters, self.filters_active)
-        print(image_records[0])
-        print(len(image_records))
-        print("#################\n")
+        
         i = 0
         for record in image_records:
             if i >= self.cells_max:

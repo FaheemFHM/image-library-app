@@ -270,18 +270,20 @@ class MediaDatabase:
                 if max_val is not None:
                     where_clauses.append(f"m.{col} <= ?")
                     params.append(max_val)
-        
+
         # tags
-        if filters.get("tags") and len(filters["tags"]) > 0:
-            tag_names = filters["tags"]
+        tag_names = [t for t in (filters.get("tags") or []) if t]
+        if tag_names:
             tag_mode = filters.get("tag_mode", "any")
             placeholders = ",".join("?" for _ in tag_names)
 
             match tag_mode:
                 case "any":
+                    # images with at least one of the tags
                     where_clauses.append(f"""
                         m.id IN (
-                            SELECT media_id FROM media_tags
+                            SELECT media_id
+                            FROM media_tags
                             JOIN tags ON media_tags.tag_id = tags.id
                             WHERE tags.name IN ({placeholders})
                         )
@@ -289,9 +291,11 @@ class MediaDatabase:
                     params.extend(tag_names)
 
                 case "all":
+                    # images with at least all of the tags
                     where_clauses.append(f"""
                         m.id IN (
-                            SELECT media_id FROM media_tags
+                            SELECT media_id
+                            FROM media_tags
                             JOIN tags ON media_tags.tag_id = tags.id
                             WHERE tags.name IN ({placeholders})
                             GROUP BY media_id
@@ -300,15 +304,35 @@ class MediaDatabase:
                     """)
                     params.extend(tag_names)
 
+                case "exact":
+                    # images with only these tags
+                    where_clauses.append(f"""
+                        m.id IN (
+                            SELECT media_id
+                            FROM media_tags
+                            JOIN tags ON media_tags.tag_id = tags.id
+                            GROUP BY media_id
+                            HAVING 
+                                COUNT(DISTINCT tags.name) = {len(tag_names)}
+                                AND SUM(CASE WHEN tags.name IN ({placeholders}) THEN 1 ELSE 0 END) = {len(tag_names)}
+                        )
+                    """)
+                    params.extend(tag_names)
+
                 case "none":
+                    # images with none of these tags
                     where_clauses.append(f"""
                         m.id NOT IN (
-                            SELECT media_id FROM media_tags
+                            SELECT media_id
+                            FROM media_tags
                             JOIN tags ON media_tags.tag_id = tags.id
                             WHERE tags.name IN ({placeholders})
                         )
                     """)
                     params.extend(tag_names)
+
+                case _:
+                    print(f"Unknown tag_mode: {tag_mode}")
 
         # main query
         sql = """
@@ -323,13 +347,9 @@ class MediaDatabase:
         sql += f" ORDER BY {filters['sort_value']} "
         sql += "DESC" if filters['sort_dir'] else "ASC"
 
-        print("Attempt sql")
-
         cursor.execute(sql, params)
         columns = [desc[0] for desc in cursor.description]
         rows = cursor.fetchall()
-
-        print("Done sql")
 
         results = []
         for row in rows:
