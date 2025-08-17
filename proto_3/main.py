@@ -70,6 +70,7 @@ class MainWindow(QMainWindow):
         self.widgets_filter = []
 
         self.db = MediaDatabase()
+        self.db.add_tag_to_images("Landscape", [4, 5, 6, 7])
 
         # Sidebar 1
         self.sidebar1 = Sidebar()
@@ -241,10 +242,19 @@ class MainWindow(QMainWindow):
         self.sidebar2 = Sidebar()
         
         self.sidebar2.add_header("Tags", 32)
+
+        self.tag_filter_mode = Dropdown(["Any", "All", "Exact", "None"],
+                          values=["any", "all", "exact", "none"],
+                          filter_key="tag_mode")
+        self.tag_filter_mode.on_filter_changed.connect(self.update_filter)
+        self.tag_filter_mode.setObjectName("tag_filter_mode")
+        self.sidebar2.add_widget(self.tag_filter_mode, 24)
+        
         self.tag_list = TagList()
         tags = self.db.get_all_tags()
         for tag in tags:
-            self.tag_list.add_tag(tag)
+            widget = self.tag_list.add_tag(tag)
+            widget.on_filter_changed.connect(self.update_filter_tags)
         self.sidebar2.add_widget(self.tag_list)
 
         widget = InputWithIcon("Add Tag...", "../icons/plus.png", 32, 20)
@@ -303,8 +313,8 @@ class MainWindow(QMainWindow):
     def add_tag(self, tag):
         added = self.db.add_tag(tag)
         if added:
-            print(f"Added Tag: {tag}")
             self.tag_list.add_tag(tag, insert_alpha=True)
+            widget.on_filter_changed.connect(self.update_filter_tags)
         else:
             print(f"Failed to add tag: {tag}")
 
@@ -323,6 +333,16 @@ class MainWindow(QMainWindow):
             self.gallery.filters[filter_key] = value
         else:
             print("Filter key does not exist.")
+            
+    def update_filter_tags(self, tag, is_active):
+        tags = self.gallery.filters.setdefault("tags", [])
+
+        if is_active:
+            if tag not in tags:
+                tags.append(tag)
+        else:
+            if tag in tags:
+                tags.remove(tag)
 
     def reset_filters(self, val=""):
         match val:
@@ -338,9 +358,11 @@ class MainWindow(QMainWindow):
             case "tags":
                 for widget in self.tag_list.tags:
                     widget.reset()
+                self.tag_filter_mode.reset()
             case "all":
                 for widget in self.widgets_search + self.widgets_sort + self.widgets_filter + self.tag_list.tags:
                     widget.reset()
+                self.tag_filter_mode.reset()
             case _:
                 print(f"Unknown reset value")
     
@@ -371,6 +393,7 @@ class MainWindow(QMainWindow):
         self.slideshow.hide()
         self.gallery.show()
         self.media_controls.set_play_icon(True)
+        #self.gallery.resize()
 
     def resume(self):
         self.slideshow.resume()
@@ -444,7 +467,6 @@ class GalleryCell(StyledWidget):
 
         self.edit_button = IconButton("../icons/edit.png", 20, footer_height)
         self.edit_button.setVisible(False)
-        #self.edit_button.clicked.connect(self.edit_popup)
 
         self.fav_button = IconToggleButton("../icons/heart_white.png", "../icons/heart_red.png", 24, footer_height)
         self.fav_button.setVisible(False)
@@ -532,7 +554,9 @@ class Gallery(StyledWidget):
             "date_added_min": None,
             "date_added_max": None,
             "sort_value": "id",
-            "sort_dir": False
+            "sort_dir": False,
+            "tags": [],
+            "tag_mode": "any"
         }
 
         self.filters_default = {
@@ -557,7 +581,9 @@ class Gallery(StyledWidget):
             "date_added_min": date_time,
             "date_added_max": date_time,
             "sort_value": "id",
-            "sort_dir": False
+            "sort_dir": False,
+            "tags": [],
+            "tag_mode": "any"
         }
 
         self.filters_active = {
@@ -636,6 +662,9 @@ class Gallery(StyledWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        self.resize()
+
+    def resize(self):
         self.get_cell_sizes()
         self.update_cell_sizes()
         
@@ -902,7 +931,9 @@ class InputWithIcon(StyledWidget):
     def reset(self):
         self.text_input.clear()
 
-class TagRow(StyledWidget):    
+class TagRow(StyledWidget):
+    on_filter_changed = pyqtSignal(str, bool)
+    
     def __init__(self, tag_name, height=32, parent=None):
         super().__init__(parent)
         self.setMouseTracking(True)
@@ -957,6 +988,7 @@ class TagRow(StyledWidget):
             self.tag_button.setObjectName("")
         self.tag_button.style().unpolish(self.tag_button)
         self.tag_button.style().polish(self.tag_button)
+        self.on_filter_changed.emit(self.tag_name, self.is_active)
 
     def reset(self):
         if self.is_active:
