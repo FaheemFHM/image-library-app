@@ -469,13 +469,23 @@ class GalleryCellEdit(StyledWidget):
 
         # Name Input
         self.sidebar.add_header("Name", 32)
-        self.input_name = TextInput("Enter Query...", filter_key="filename")
+
+        self.sidebar.add_subheader_flat("Old", height=24)
+        self.old_name = QLabel("filename")
+        self.old_name.setAlignment(Qt.AlignCenter)
+        self.sidebar.add_widget(self.old_name, 24)
+
+        self.sidebar.add_subheader_flat("New", height=24)
+        self.input_name = TextInput("Input New Filename", filter_key="filename")
+        self.input_name.setProperty("class", "clear_spacing")
+        self.input_name.setAlignment(Qt.AlignCenter)
         self.sidebar.add_widget(self.input_name, 24)
         
         self.sidebar.add_spacer(spacing)
 
         # Tag List
         self.sidebar.add_header("Tags", 32)
+        
         self.tag_list = TagList()
         self.refresh_tags()
         self.sidebar.add_widget(self.tag_list)
@@ -488,9 +498,13 @@ class GalleryCellEdit(StyledWidget):
         widget = TextButton("Apply")
         widget.clicked.connect(self.apply_edits)
         self.sidebar.add_widget(widget, 24)
+
+        widget = TextButton("Revert")
+        widget.clicked.connect(self.revert_edits)
+        self.sidebar.add_widget(widget, 24)
         
-        widget = TextButton("Cancel")
-        widget.clicked.connect(self.cancel_edits)
+        widget = TextButton("Back")
+        widget.clicked.connect(self.close_edits)
         self.sidebar.add_widget(widget, 24)
 
         # Update Layout
@@ -502,8 +516,12 @@ class GalleryCellEdit(StyledWidget):
 
     def apply_edits(self):
         return
+
+    def revert_edits(self):
+        self.input_name.reset()
+        self.toggle_tags(self.original_tags)
     
-    def cancel_edits(self):
+    def close_edits(self):
         self.close_edit.emit()
 
     def set_data(self, data, tags_changed):
@@ -512,12 +530,13 @@ class GalleryCellEdit(StyledWidget):
         self.set_image(data['filepath'])
         
         path_object = Path(data['filename'])
-        self.input_name.setText(path_object.stem)
+        self.old_name.setText(path_object.stem)
         self.extension = path_object.suffix
-        
+
+        self.original_tags = self.data['tags'].copy()
         if tags_changed:
             self.refresh_tags()
-        self.toggle_tags()
+        self.toggle_tags(self.data['tags'])
 
     def refresh_tags(self):
         if set(self.all_tags) != set(self.parent().all_tags):
@@ -526,9 +545,9 @@ class GalleryCellEdit(StyledWidget):
             for tag in self.all_tags:
                 self.tag_list.add_tag(tag)
     
-    def toggle_tags(self):
+    def toggle_tags(self, my_list):
         for tag in self.tag_list.tags:
-            tag.set_active(True if tag.tag_name in self.data['tags'] else False)
+            tag.set_active(True if tag.tag_name in my_list else False)
     
     def set_image(self, filepath):
         pixmap = QPixmap(filepath)
@@ -1597,9 +1616,9 @@ class Sidebar(StyledWidget):
 
         self.widgets = []
     
-    def add_header(self, title, height=None):
+    def add_header(self, title, height=None, class_name="sidebar_header"):
         header = QLabel(title)
-        header.setProperty("class", "sidebar_header")
+        header.setProperty("class", class_name)
         header.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
         if height is not None:
             header.setFixedHeight(height)
@@ -1609,6 +1628,9 @@ class Sidebar(StyledWidget):
         subheader = SidebarSubHeader(title, filter_key=filter_key, parent=self)
         self.layout().addWidget(subheader)
         return subheader
+
+    def add_subheader_flat(self, title, height=None):
+        self.add_header(title, height=height, class_name="sidebar_sub_header")
 
     def add_spacer(self, height=10):
         spacer = StyledWidget()

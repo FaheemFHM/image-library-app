@@ -34,6 +34,10 @@ QDateTimeEdit, QComboBox, QLineEdit, QSpinBox {
 	color: white;
 }
 
+QLabel[class="padded_label"] {
+	padding-left: 10px;
+}
+
 QWidget[class="sidebar"] {
 	background: #282828;
 	color: #ffffff;
@@ -46,14 +50,14 @@ QLabel[class="sidebar_header"] {
 	font-size: 16px;
 }
 
-QPushButton[class="sidebar_sub_header"] {
+QWidget[class="sidebar_sub_header"] {
 	color: #07e9f5;
 	font-weight: 500;
 	border: 1px solid #282828;
 }
 
 
-QPushButton[class="sidebar_sub_header_active"] {
+QWidget[class="sidebar_sub_header_active"] {
 	color: #07e9f5;
 	font-weight: 500;
 	border: 1px solid #07e9f5;
@@ -122,4 +126,9 @@ QDateTimeEdit, QComboBox, QLineEdit, QSpinBox {
 #tag_filter_mode {
 	border: 1px solid #07e9f5;
 	border-top: none;
+}
+
+QWidget[class="clear_spacing"] {
+	padding: 0px;
+	margin: 0px;
 }
