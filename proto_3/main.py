@@ -494,7 +494,7 @@ class GalleryCellEdit(StyledWidget):
         # Tag List
         self.sidebar.add_header("Tags", 32)
         
-        self.tag_list = TagList()
+        self.tag_list = TagList(anim=False)
         self.refresh_tags()
         self.sidebar.add_widget(self.tag_list)
         
@@ -1131,10 +1131,11 @@ class InputWithIcon(StyledWidget):
 class TagRow(StyledWidget):
     on_filter_changed = pyqtSignal(str, bool)
     
-    def __init__(self, tag_name, height=32, parent=None):
+    def __init__(self, tag_name, height=32, anim=True, parent=None):
         super().__init__(parent)
         self.setMouseTracking(True)
         self.setObjectName("tag_row")
+        self.anim = anim
         
         self.tag_name = tag_name
         self.is_active = False
@@ -1168,11 +1169,17 @@ class TagRow(StyledWidget):
         layout.addWidget(self.edit_button)
 
     def enterEvent(self, event):
+        if not self.anim:
+            event.ignore()
+            return
         self.delete_button.show()
         self.edit_button.show()
         super().enterEvent(event)
 
     def leaveEvent(self, event):
+        if not self.anim:
+            event.ignore()
+            return
         self.delete_button.hide()
         self.edit_button.hide()
         super().leaveEvent(event)
@@ -1192,10 +1199,11 @@ class TagRow(StyledWidget):
         self.set_active(False)
 
 class TagList(StyledWidget):
-    def __init__(self, parent=None):
+    def __init__(self, anim=True, parent=None):
         super().__init__(parent)
 
         self.tags = []
+        self.anim = anim
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1223,7 +1231,7 @@ class TagList(StyledWidget):
         self.scroll_area.setObjectName("tag_list_scroll")
 
     def add_tag(self, tag_name, insert_alpha=False):
-        tag_row = TagRow(tag_name)
+        tag_row = TagRow(tag_name, anim=self.anim)
         self.tags.append(tag_row)
         
         if insert_alpha:
