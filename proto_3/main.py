@@ -1,6 +1,7 @@
 
 
 import sys
+import re
 from pathlib import Path
 import random
 import time
@@ -522,14 +523,38 @@ class GalleryCellEdit(StyledWidget):
         self.hide()
 
     def apply_edits(self):
+        # filename
+        filename = self.santitise_filename(self.input_name.text())
+        if not filename:
+            return
+
+        # tags
         new_tags = [tag.tag_name for tag in self.tag_list.tags if tag.is_active]
         if set(self.original_tags) != set(new_tags):
             self.original_tags = new_tags.copy()
         else:
             new_tags = None
-        self.do_apply.emit(self.data['id'], self.input_name.text() + self.extension, new_tags)
-        self.old_name.setText(self.input_name.text())
+
+        # signal
+        self.do_apply.emit(self.data['id'], filename + self.extension, new_tags)
+
+        # show changes
+        self.old_name.setText(filename)
         self.revert_edits()
+
+    def sanitise_filename(self, name):
+        name = name.strip()
+        
+        invalid_chars = r'[<>:"/\\|?*].'
+        if re.search(invalid_chars, name):
+            print(f"Filenames can't contain\n{invalid_chars}")
+            return None
+
+        if not name:
+            print("Can't have empty filename")
+            return None
+
+        return name
 
     def revert_edits(self):
         self.input_name.reset()
