@@ -167,6 +167,15 @@ class MediaDatabase:
         results = cursor.fetchall()
         return [row[0] for row in results]
 
+    def set_image_filename(self, image_id, new_filename):
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            UPDATE media
+            SET filename = ?
+            WHERE id = ?
+        """, (new_filename, image_id))
+        self.conn.commit()
+
     def add_tag(self, tag_name):
         cursor = self.conn.cursor()
         cursor.execute("SELECT id FROM tags WHERE name = ?", (tag_name,))
@@ -180,6 +189,29 @@ class MediaDatabase:
         cursor = self.conn.cursor()
         cursor.execute("SELECT name FROM tags ORDER BY name ASC")
         return [row[0] for row in cursor.fetchall()]
+
+    def set_image_tags(self, image_id, tag_names):
+        cursor = self.conn.cursor()
+
+        # Remove all existing tags
+        cursor.execute("DELETE FROM media_tags WHERE media_id = ?", (image_id,))
+
+        # Add the specified tags
+        for tag_name in tag_names:
+            # Try to find tag id
+            cursor.execute("SELECT id FROM tags WHERE name = ?", (tag_name,))
+            tag_row = cursor.fetchone()
+
+            if tag_row:
+                tag_id = tag_row[0]
+
+            # Specify relation
+            cursor.execute("""
+                INSERT INTO media_tags (media_id, tag_id)
+                VALUES (?, ?)
+            """, (image_id, tag_id))
+
+        self.conn.commit()
 
     def add_tags_to_image(self, image_id, tag_names):
         cursor = self.conn.cursor()

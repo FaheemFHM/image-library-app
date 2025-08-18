@@ -293,6 +293,7 @@ class MainWindow(QMainWindow):
 
         # Gallery Cell Edit
         self.gallery_edit = GalleryCellEdit(spacing=self.grid_spacing, parent=self)
+        self.gallery_edit.do_apply.connect(self.apply_gallery_edit)
         self.gallery_edit.close_edit.connect(self.close_gallery_edit)
         self.tags_changed = False
         main_layout.addWidget(self.gallery_edit)
@@ -321,6 +322,11 @@ class MainWindow(QMainWindow):
         self.sidebars_toggle(True, False, False)
         self.gallery_edit.show()
         self.gallery_edit.set_data(data, self.tags_changed)
+
+    def apply_gallery_edit(self, image_id, filename, tags):
+        self.db.set_image_filename(image_id, filename)
+        if tags is not None:
+            self.db.set_image_tags(image_id, tags)
 
     def close_gallery_edit(self):
         self.tags_changed = False
@@ -447,6 +453,7 @@ class MainWindow(QMainWindow):
 
 class GalleryCellEdit(StyledWidget):
     close_edit = pyqtSignal()
+    do_apply = pyqtSignal(int, str, object)
     
     def __init__(self, spacing=0, parent=None):
         super().__init__(parent)
@@ -515,13 +522,21 @@ class GalleryCellEdit(StyledWidget):
         self.hide()
 
     def apply_edits(self):
-        return
+        new_tags = [tag.tag_name for tag in self.tag_list.tags if tag.is_active]
+        if set(self.original_tags) != set(new_tags):
+            self.original_tags = new_tags.copy()
+        else:
+            new_tags = None
+        self.do_apply.emit(self.data['id'], self.input_name.text() + self.extension, new_tags)
+        self.old_name.setText(self.input_name.text())
+        self.revert_edits()
 
     def revert_edits(self):
         self.input_name.reset()
         self.toggle_tags(self.original_tags)
     
     def close_edits(self):
+        self.revert_edits()
         self.close_edit.emit()
 
     def set_data(self, data, tags_changed):
