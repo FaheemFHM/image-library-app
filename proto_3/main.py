@@ -405,8 +405,8 @@ class MainWindow(QMainWindow):
 
     def play(self):
         self.gallery.hide()
-        self.slideshow.show()
         self.sidebars_toggle(True, False)
+        self.slideshow.show()
         self.slideshow.play()
         self.media_controls.set_play_icon(False)
 
@@ -416,11 +416,10 @@ class MainWindow(QMainWindow):
 
     def stop(self):
         self.slideshow.stop()
-        self.sidebars_toggle(True, True)
         self.slideshow.hide()
+        self.sidebars_toggle(True, True)
         self.gallery.show()
         self.media_controls.set_play_icon(True)
-        #self.gallery.resize()
 
     def resume(self):
         self.slideshow.resume()
@@ -846,8 +845,6 @@ class Gallery(StyledWidget):
                 break
             self.add_cell(GalleryCell(record, window=self.parent, parent=self))
             i += 1
-        
-        self.update_cell_sizes()
 
     def add_cell(self, widget):
         row = self.cell_count // self.columns
