@@ -296,7 +296,6 @@ class MainWindow(QMainWindow):
         self.gallery_edit = GalleryCellEdit(spacing=self.grid_spacing, parent=self)
         self.gallery_edit.do_apply.connect(self.apply_gallery_edit)
         self.gallery_edit.close_edit.connect(self.close_gallery_edit)
-        self.tags_changed = False
         main_layout.addWidget(self.gallery_edit)
 
         # Slideshow
@@ -322,7 +321,7 @@ class MainWindow(QMainWindow):
         self.gallery.hide()
         self.sidebars_toggle(True, False, False)
         self.gallery_edit.show()
-        self.gallery_edit.set_data(data, self.tags_changed)
+        self.gallery_edit.set_data(data, self.all_tags)
 
     def apply_gallery_edit(self, image_id, filename, tags):
         self.db.set_image_filename(image_id, filename)
@@ -330,7 +329,6 @@ class MainWindow(QMainWindow):
             self.db.set_image_tags(image_id, tags)
 
     def close_gallery_edit(self):
-        self.tags_changed = False
         self.gallery_edit.hide()
         self.sidebars_toggle(True, True, True)
         self.gallery.show()
@@ -341,7 +339,6 @@ class MainWindow(QMainWindow):
             widget = self.tag_list.add_tag(tag, insert_alpha=True)
             widget.on_filter_changed.connect(self.update_filter_tags)
             self.all_tags.append(tag)
-            self.tags_changed = True
         else:
             print(f"Failed to add tag: {tag}")
 
@@ -458,6 +455,7 @@ class GalleryCellEdit(StyledWidget):
     def __init__(self, spacing=0, parent=None):
         super().__init__(parent)
         self.all_tags = []
+        self.original_tags = []
 
         # Main Layout
         layout = QHBoxLayout(self)
@@ -494,7 +492,7 @@ class GalleryCellEdit(StyledWidget):
         self.sidebar.add_header("Tags", 32)
         
         self.tag_list = TagList(anim=False)
-        self.refresh_tags()
+        #self.refresh_tags()
         self.sidebar.add_widget(self.tag_list)
         
         self.sidebar.add_spacer(spacing)
@@ -563,8 +561,9 @@ class GalleryCellEdit(StyledWidget):
         self.revert_edits()
         self.close_edit.emit()
 
-    def set_data(self, data, tags_changed):
+    def set_data(self, data, all_tags):
         self.data = data.copy()
+        self.all_tags = all_tags.copy()
         
         self.set_image(data['filepath'])
         
@@ -573,16 +572,13 @@ class GalleryCellEdit(StyledWidget):
         self.extension = path_object.suffix
 
         self.original_tags = self.data['tags'].copy()
-        if tags_changed:
-            self.refresh_tags()
+        self.refresh_tags()
         self.toggle_tags(self.data['tags'])
 
     def refresh_tags(self):
-        if set(self.all_tags) != set(self.parent().all_tags):
-            self.all_tags = sorted(self.parent().all_tags)
-            self.tag_list.clear_tags()
-            for tag in self.all_tags:
-                self.tag_list.add_tag(tag)
+        self.tag_list.clear_tags()
+        for tag in self.all_tags:
+            self.tag_list.add_tag(tag)
     
     def toggle_tags(self, my_list):
         for tag in self.tag_list.tags:
@@ -845,6 +841,8 @@ class Gallery(StyledWidget):
                 break
             self.add_cell(GalleryCell(record, window=self.parent, parent=self))
             i += 1
+
+        self.update_cell_sizes()
 
     def add_cell(self, widget):
         row = self.cell_count // self.columns
@@ -1248,7 +1246,7 @@ class TagList(StyledWidget):
         return tag_row
 
     def clear_tags(self):
-        for i in reversed(range(self.content_layout.count() - 1)):  
+        for i in reversed(range(self.content_layout.count() - 1)):
             item = self.content_layout.itemAt(i)
             widget = item.widget()
             if widget is not None:
