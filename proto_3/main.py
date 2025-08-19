@@ -321,10 +321,11 @@ class MainWindow(QMainWindow):
         self.gallery.hide()
         self.sidebars_toggle(True, False, False)
         self.gallery_edit.show()
-        self.gallery_edit.set_data(data, self.all_tags)
+        self.gallery_edit.set_data(data, sorted(self.all_tags))
 
     def apply_gallery_edit(self, image_id, filename, tags):
-        self.db.set_image_filename(image_id, filename)
+        if filename:
+            self.db.set_image_filename(image_id, filename)
         if tags is not None:
             self.db.set_image_tags(image_id, tags)
 
@@ -454,8 +455,6 @@ class GalleryCellEdit(StyledWidget):
     
     def __init__(self, spacing=0, parent=None):
         super().__init__(parent)
-        self.all_tags = []
-        self.original_tags = []
 
         # Main Layout
         layout = QHBoxLayout(self)
@@ -492,7 +491,6 @@ class GalleryCellEdit(StyledWidget):
         self.sidebar.add_header("Tags", 32)
         
         self.tag_list = TagList(anim=False)
-        #self.refresh_tags()
         self.sidebar.add_widget(self.tag_list)
         
         self.sidebar.add_spacer(spacing)
@@ -521,9 +519,11 @@ class GalleryCellEdit(StyledWidget):
 
     def apply_edits(self):
         # filename
-        filename = self.santitise_filename(self.input_name.text())
-        if not filename:
-            return
+        filename = self.sanitise_filename(self.input_name.text())
+        if filename is not None:
+            filename += self.extension
+            self.old_name.setText(filename)
+        print("empty" if not filename else filename)
 
         # tags
         new_tags = [tag.tag_name for tag in self.tag_list.tags if tag.is_active]
@@ -531,12 +531,9 @@ class GalleryCellEdit(StyledWidget):
             self.original_tags = new_tags.copy()
         else:
             new_tags = None
-
+        
         # signal
-        self.do_apply.emit(self.data['id'], filename + self.extension, new_tags)
-
-        # show changes
-        self.old_name.setText(filename)
+        self.do_apply.emit(self.data['id'], filename, new_tags)
         self.revert_edits()
 
     def sanitise_filename(self, name):
@@ -544,11 +541,9 @@ class GalleryCellEdit(StyledWidget):
         
         invalid_chars = r'[<>:"/\\|?*].'
         if re.search(invalid_chars, name):
-            print(f"Filenames can't contain\n{invalid_chars}")
             return None
 
         if not name:
-            print("Can't have empty filename")
             return None
 
         return name
@@ -563,7 +558,6 @@ class GalleryCellEdit(StyledWidget):
 
     def set_data(self, data, all_tags):
         self.data = data.copy()
-        self.all_tags = all_tags.copy()
         
         self.set_image(data['filepath'])
         
@@ -572,12 +566,12 @@ class GalleryCellEdit(StyledWidget):
         self.extension = path_object.suffix
 
         self.original_tags = self.data['tags'].copy()
-        self.refresh_tags()
+        self.refresh_tags(all_tags)
         self.toggle_tags(self.data['tags'])
 
-    def refresh_tags(self):
+    def refresh_tags(self, all_tags):
         self.tag_list.clear_tags()
-        for tag in self.all_tags:
+        for tag in all_tags:
             self.tag_list.add_tag(tag)
     
     def toggle_tags(self, my_list):
