@@ -317,11 +317,11 @@ class MainWindow(QMainWindow):
 
         self.apply_filters()
 
-    def open_gallery_edit(self, data):
+    def open_gallery_edit(self, data, cell):
         self.gallery.hide()
         self.sidebars_toggle(True, False, False)
         self.gallery_edit.show()
-        self.gallery_edit.set_data(data, sorted(self.all_tags))
+        self.gallery_edit.set_data(data, sorted(self.all_tags), cell)
 
     def apply_gallery_edit(self, image_id, filename, tags):
         if filename:
@@ -520,10 +520,9 @@ class GalleryCellEdit(StyledWidget):
     def apply_edits(self):
         # filename
         filename = self.sanitise_filename(self.input_name.text())
-        if filename is not None:
-            filename += self.extension
+        if filename:
             self.old_name.setText(filename)
-        print("empty" if not filename else filename)
+            filename += self.extension
 
         # tags
         new_tags = [tag.tag_name for tag in self.tag_list.tags if tag.is_active]
@@ -534,6 +533,7 @@ class GalleryCellEdit(StyledWidget):
         
         # signal
         self.do_apply.emit(self.data['id'], filename, new_tags)
+        self.my_cell.update_cell(filename, new_tags)
         self.revert_edits()
 
     def sanitise_filename(self, name):
@@ -556,8 +556,9 @@ class GalleryCellEdit(StyledWidget):
         self.revert_edits()
         self.close_edit.emit()
 
-    def set_data(self, data, all_tags):
+    def set_data(self, data, all_tags, my_cell):
         self.data = data.copy()
+        self.my_cell = my_cell
         
         self.set_image(data['filepath'])
         
@@ -602,7 +603,7 @@ class GalleryCellEdit(StyledWidget):
         super().resizeEvent(event)
 
 class GalleryCell(StyledWidget):
-    edit_cell = pyqtSignal(object)
+    edit_cell = pyqtSignal(object, object)
     
     def __init__(self, record, window, spacing=10, footer_height=32, parent=None):
         super().__init__(parent)
@@ -643,13 +644,12 @@ class GalleryCell(StyledWidget):
         self.label_id = QLabel(str(self.image_id))
 
         label_spacer = QLabel("     -     ")
-
-        #self.label_name = QLabel(Path(self.image_path).name)
-        self.label_name = QLabel(self.data['filename'])
+        
+        self.label_name = QLabel(Path(self.data['filename']).stem)
 
         self.edit_button = IconButton("../icons/edit.png", 20, footer_height)
         self.edit_button.setVisible(False)
-        self.edit_button.clicked.connect(lambda: self.edit_cell.emit(self.data))
+        self.edit_button.clicked.connect(lambda: self.edit_cell.emit(self.data, self))
 
         self.fav_button = IconToggleButton("../icons/heart_white.png", "../icons/heart_red.png", 24, footer_height)
         self.fav_button.setVisible(False)
@@ -679,6 +679,13 @@ class GalleryCell(StyledWidget):
         self.check_visibility()
         super().leaveEvent(event)
 
+    def update_cell(self, filename, new_tags):
+        if filename:
+            self.data['filename'] = filename
+            self.label_name.setText(Path(self.data['filename']).stem)
+        if new_tags is not None:
+            self.data['tags'] = new_tags.copy()
+
     def check_visibility(self):
         hovered = self.underMouse()
         self.edit_button.setVisible(hovered)
@@ -702,7 +709,7 @@ class GalleryCell(StyledWidget):
             self.image_label.setPixmap(scaled)
 
 class Gallery(StyledWidget):
-    edit_cell = pyqtSignal(object)
+    edit_cell = pyqtSignal(object, object)
     
     def __init__(self, columns=3, spacing=10, parent=None):
         super().__init__(parent)
