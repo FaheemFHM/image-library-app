@@ -14,7 +14,8 @@ from PyQt5.QtWidgets import (
     QLabel, QPushButton, QLineEdit, QSpinBox, QComboBox, QCheckBox,
     QTextEdit, QScrollArea, QFrame, QStackedWidget,
     QTabWidget, QToolBar, QAction, QSizePolicy, QFileDialog, QMessageBox,
-    QDateTimeEdit, QSlider, QDialog
+    QDateTimeEdit, QSlider, QDialog,
+    QTableWidget, QTableWidgetItem, QHeaderView
 )
 
 from PyQt5.QtGui import (
@@ -122,8 +123,8 @@ class MainWindow(QMainWindow):
         subheader = self.sidebar1.add_subheader("Favourite", height=24, filter_key="is_favourite")
         self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
-        widget = Dropdown(["Any", "Favourites", "Non-Favourites"],
-                          values=[None, True, False],
+        widget = Dropdown(["Favourites", "Non-Favourites"],
+                          values=[True, False],
                           filter_key="is_favourite")
         widget.on_filter_changed.connect(self.update_filter)
         self.widgets_filter.append(widget)
@@ -132,7 +133,7 @@ class MainWindow(QMainWindow):
         subheader = self.sidebar1.add_subheader("File Type", height=24, filter_key="type")
         self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
-        my_array = ["Any"] + self.db.get_unique_values("type")
+        my_array = self.db.get_unique_values("type")
         my_array = [x for x in my_array if x is not None]
         widget = Dropdown(my_array, filter_key="type")
         widget.on_filter_changed.connect(self.update_filter)
@@ -142,7 +143,7 @@ class MainWindow(QMainWindow):
         subheader = self.sidebar1.add_subheader("Format", height=24, filter_key="format")
         self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
-        my_array = ["Any"] + self.db.get_unique_values("format")
+        my_array = self.db.get_unique_values("format")
         my_array = [x for x in my_array if x is not None]
         widget = Dropdown(my_array, filter_key="format")
         widget.on_filter_changed.connect(self.update_filter)
@@ -152,7 +153,7 @@ class MainWindow(QMainWindow):
         subheader = self.sidebar1.add_subheader("Camera", height=24, filter_key="camera_model")
         self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
-        my_array = ["Any"] + self.db.get_unique_values("camera_model")
+        my_array = self.db.get_unique_values("camera_model")
         my_array = [x for x in my_array if x is not None]
         widget = Dropdown(my_array, filter_key="camera_model")
         widget.on_filter_changed.connect(self.update_filter)
@@ -602,6 +603,57 @@ class GalleryCellEdit(StyledWidget):
         self.image_label.setPixmap(scaled)
         super().resizeEvent(event)
 
+class GalleryCellTable(QTableWidget):
+    def __init__(self, data=None, width=None, row_height=24, parent=None):
+        super().__init__(parent)
+        self.row_height = row_height
+
+        # No headers
+        self.verticalHeader().setVisible(False)
+        self.horizontalHeader().setVisible(False)
+
+        # No scrollbars
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        # No selection
+        self.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.setSelectionMode(QTableWidget.NoSelection)
+
+        # Stretch columns
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+        if width:
+            self.setFixedWidth(width)
+
+        if data:
+            self.set_data(data)
+
+    def set_data(self, data):
+        self.clear()
+        self.setRowCount(len(data))
+        self.setColumnCount(len(data[0]) if data else 0)
+
+        for row_idx, row in enumerate(data):
+            for col_idx, value in enumerate(row):
+                self.setItem(row_idx, col_idx, QTableWidgetItem(str(value)))
+            self.setRowHeight(row_idx, self.row_height)
+
+        total_height = self.row_height * self.rowCount()
+        self.setFixedHeight(total_height)
+
+    def hide_row(self, row_index):
+        self.setRowHidden(row_index, True)
+
+    def show_row(self, row_index):
+        self.setRowHidden(row_index, False)
+
+    def update_cell(self, row, col, new_value):
+        if not self.item(row, col):
+            self.setItem(row, col, QTableWidgetItem(str(new_value)))
+        else:
+            self.item(row, col).setText(str(new_value))
+
 class GalleryCell(StyledWidget):
     edit_cell = pyqtSignal(object, object)
     
@@ -614,6 +666,7 @@ class GalleryCell(StyledWidget):
         self.image_path = record['filepath']
         self.image_id = record['id']
         self.window = window
+        self.spacing = spacing
 
         self.pixmap = QPixmap(self.image_path)
         self.width = 10
@@ -636,6 +689,7 @@ class GalleryCell(StyledWidget):
         footer = QWidget()
         self.footer_height = footer_height
         footer.setFixedHeight(footer_height)
+        
         footer_layout = QHBoxLayout()
         footer_layout.setContentsMargins(10, 0, 0, 0)
         footer_layout.setSpacing(0)
@@ -645,7 +699,7 @@ class GalleryCell(StyledWidget):
 
         label_spacer = QLabel("     -     ")
         
-        self.label_name = QLabel(Path(self.data['filename']).stem)
+        self.label_name = QLabel(self.data['filename'])
 
         self.edit_button = IconButton("../icons/edit.png", 20, footer_height)
         self.edit_button.setVisible(False)
@@ -666,6 +720,18 @@ class GalleryCell(StyledWidget):
 
         layout.addWidget(footer)
 
+        # Details Table
+        table_data = []
+        table_data.append(["Dimensions", f"{self.data['height']} * {self.data['width']}"])
+        table_data.append(["Filesize", f"{self.data['filesize']//1000} KB"])
+        table_data.append(["Camera Model", f"{self.data['camera_model']}"])
+        table_data.append(["Times Viewed", f"{self.data['times_viewed']}"])
+        table_data.append(["Duration Viewed", f"{self.data['time_viewed']}"])
+        table_data.append(["Date Captured", f"{self.data['date_captured']}"])
+        table_data.append(["Date Added", f"{self.data['date_added']}"])
+        self.details = GalleryCellTable(table_data, width=self.width, parent=self)
+        layout.addWidget(self.details)
+
         # Styling
         self.image_label.setObjectName("cell_image")
         footer.setObjectName("cell_footer")
@@ -682,7 +748,7 @@ class GalleryCell(StyledWidget):
     def update_cell(self, filename, new_tags):
         if filename:
             self.data['filename'] = filename
-            self.label_name.setText(Path(self.data['filename']).stem)
+            self.label_name.setText(self.data['filename'])
         if new_tags is not None:
             self.data['tags'] = new_tags.copy()
 
@@ -707,6 +773,12 @@ class GalleryCell(StyledWidget):
                 Qt.SmoothTransformation
             )
             self.image_label.setPixmap(scaled)
+
+        # table
+        self.details.setFixedWidth(width)
+        self.details.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        for col in range(self.details.columnCount()):
+            self.details.horizontalHeader().resizeSection(col, width // self.details.columnCount())
 
 class Gallery(StyledWidget):
     edit_cell = pyqtSignal(object, object)

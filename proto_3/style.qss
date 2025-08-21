@@ -132,3 +132,19 @@ QWidget[class="clear_spacing"] {
 	padding: 0px;
 	margin: 0px;
 }
+
+QTableWidget {
+	background-color: #282828;
+	border: none;
+	gridline-color: transparent;
+}
+
+QTableWidget::item {
+	padding: 0px;
+	padding-left: 5px;
+	margin: 0px;
+	border: none;
+	background-color: transparent;
+	color: white;
+	font-size: 14px;
+}
