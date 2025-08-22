@@ -253,6 +253,7 @@ class MainWindow(QMainWindow):
         self.sidebar2.add_widget(self.tag_filter_mode, 24)
         
         self.tag_list = TagList()
+        self.tag_list.on_delete.connect(self.delete_tag)
         self.all_tags = self.db.get_all_tags()
         for tag in self.all_tags:
             widget = self.tag_list.add_tag(tag)
@@ -273,7 +274,7 @@ class MainWindow(QMainWindow):
             btn = TextButton(item, toggle_class="tag_row_button", height="fixed")
             btn.on_toggle.connect(lambda _, i=item: self.update_details(i))
             self.sidebar2.add_widget(btn, 24)
-                
+        
         self.sidebar2.add_spacer(self.grid_spacing)
 
         button = TextButton("Apply", height="fixed")
@@ -358,6 +359,15 @@ class MainWindow(QMainWindow):
             self.all_tags.append(tag)
         else:
             print(f"Failed to add tag: {tag}")
+
+    def delete_tag(self, tag):
+        tag_name = tag.tag_name
+        delete_success = self.db.remove_tag_by_name(tag_name)
+        if delete_success:
+            self.tag_list.delete_tag(tag)
+            self.all_tags.remove(tag_name)
+        if not self.all_tags:
+            self.gallery.filters['tags'].clear()
 
     def apply_filters(self):
         self.gallery.populate_gallery()
@@ -1216,6 +1226,7 @@ class InputWithIcon(StyledWidget):
 
 class TagRow(StyledWidget):
     on_filter_changed = pyqtSignal(str, bool)
+    on_delete = pyqtSignal(object)
     
     def __init__(self, tag_name, height=32, anim=True, parent=None):
         super().__init__(parent)
@@ -1237,6 +1248,7 @@ class TagRow(StyledWidget):
         self.delete_button.setFixedSize(height, height)
         self.delete_button.setCursor(Qt.PointingHandCursor)
         self.delete_button.hide()
+        self.delete_button.clicked.connect(self.delete_tag)
         layout.addWidget(self.delete_button)
 
         self.tag_button = QPushButton(tag_name)
@@ -1273,6 +1285,9 @@ class TagRow(StyledWidget):
     def toggle_active(self):
         self.set_active(not self.is_active)
 
+    def delete_tag(self):
+        self.on_delete.emit(self.tag_name)
+
     def set_active(self, val: bool):
         self.is_active = val
         self.tag_button.setObjectName("tag_row_button" if self.is_active else "")
@@ -1285,6 +1300,8 @@ class TagRow(StyledWidget):
         self.set_active(False)
 
 class TagList(StyledWidget):
+    on_delete = pyqtSignal(object)
+    
     def __init__(self, anim=True, parent=None):
         super().__init__(parent)
 
@@ -1316,8 +1333,14 @@ class TagList(StyledWidget):
         self.content_widget.setObjectName("tag_list_content")
         self.scroll_area.setObjectName("tag_list_scroll")
 
+    def delete_tag(self, tag):
+        self.tags.remove(tag)
+        self.content_layout.removeWidget(tag)
+        tag.setParent(None)
+        tag.deleteLater()
+
     def add_tag(self, tag_name, insert_alpha=False):
-        tag_row = TagRow(tag_name, anim=self.anim)
+        tag_row = TagRow(tag_name, anim=self.anim, parent=self)
         self.tags.append(tag_row)
         
         if insert_alpha:
@@ -1334,6 +1357,7 @@ class TagList(StyledWidget):
         else:
             self.content_layout.insertWidget(self.content_layout.count() - 1, tag_row)
 
+        tag_row.on_delete.connect(lambda: self.on_delete.emit(tag_row))
         return tag_row
 
     def clear_tags(self):
@@ -1672,16 +1696,16 @@ class MediaControlBar(StyledWidget):
 
         self.add_spacer(self.parent.grid_spacing)
 
-        button = IconButton("../icons/fastest_forwards.png")
-        layout.addWidget(button, alignment=Qt.AlignHCenter)
+        #button = IconButton("../icons/fastest_forwards.png")
+        #layout.addWidget(button, alignment=Qt.AlignHCenter)
 
-        button = IconButton("../icons/fastest_backwards.png")
-        layout.addWidget(button, alignment=Qt.AlignHCenter)
+        #button = IconButton("../icons/fastest_backwards.png")
+        #layout.addWidget(button, alignment=Qt.AlignHCenter)
 
-        button = IconButton("../icons/skip_forwards.png")
-        layout.addWidget(button, alignment=Qt.AlignHCenter)
+        #button = IconButton("../icons/skip_forwards.png")
+        #layout.addWidget(button, alignment=Qt.AlignHCenter)
 
-        button = IconButton("../icons/skip_backwards.png")
+        #button = IconButton("../icons/skip_backwards.png")
         layout.addWidget(button, alignment=Qt.AlignHCenter)
 
         self.add_spacer(self.parent.grid_spacing)

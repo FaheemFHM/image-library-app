@@ -35,6 +35,20 @@ class MediaDatabase:
             cursor.execute("DELETE FROM sqlite_sequence WHERE name = ?", (table_name,))
         self.conn.commit()
 
+    def remove_tag_by_name(self, tag_name):
+        cursor = self.conn.cursor()
+
+        cursor.execute("SELECT id FROM tags WHERE name = ?", (tag_name,))
+        tag_row = cursor.fetchone()
+        if not tag_row:
+            return False
+        tag_id = tag_row[0]
+        cursor.execute("DELETE FROM media_tags WHERE tag_id = ?", (tag_id,))
+        cursor.execute("DELETE FROM tags WHERE id = ?", (tag_id,))
+
+        self.conn.commit()
+        return True
+
     def create_tables(self):
         cursor = self.conn.cursor()
 
