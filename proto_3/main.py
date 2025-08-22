@@ -3,6 +3,7 @@
 import sys
 import re
 from pathlib import Path
+from functools import partial
 import random
 import time
 
@@ -265,9 +266,20 @@ class MainWindow(QMainWindow):
 
         self.sidebar2.add_spacer(self.grid_spacing)
 
+        self.sidebar2.add_header("Details", 32)
+
+        items = ["Dimensions", "Filesize", "Camera Model", "Times Viewed",
+                 "Duration Viewed", "Date Captured", "Date Added"]
+        for item in items:
+            btn = TextButton(item, toggle_class="tag_row_button", height="fixed")
+            btn.on_toggle.connect(lambda _, i=item: self.update_details(i))
+            self.sidebar2.add_widget(btn, 24)
+                
+        self.sidebar2.add_spacer(self.grid_spacing)
+
         button = TextButton("Apply", height="fixed")
         button.setObjectName("apply_button")
-        button.setFixedHeight(200)
+        button.setFixedHeight(128)
         button.clicked.connect(self.apply_filters)
         self.sidebar2.add_widget(button)
         
@@ -317,6 +329,7 @@ class MainWindow(QMainWindow):
         self.showMaximized()
 
         self.apply_filters()
+        self.gallery.update_details()
 
     def open_gallery_edit(self, data, cell):
         self.gallery.hide()
@@ -334,6 +347,9 @@ class MainWindow(QMainWindow):
         self.gallery_edit.hide()
         self.sidebars_toggle(True, True, True)
         self.gallery.show()
+
+    def update_details(self, detail):
+        self.gallery.update_details(detail)
 
     def add_tag(self, tag):
         added = self.db.add_tag(tag)
@@ -607,6 +623,7 @@ class GalleryCellTable(QTableWidget):
     def __init__(self, data=None, width=None, row_height=24, parent=None):
         super().__init__(parent)
         self.row_height = row_height
+        self.headers = []
 
         # No headers
         self.verticalHeader().setVisible(False)
@@ -633,6 +650,7 @@ class GalleryCellTable(QTableWidget):
         self.clear()
         self.setRowCount(len(data))
         self.setColumnCount(len(data[0]) if data else 0)
+        self.headers = [row[0] for row in data if row]
 
         for row_idx, row in enumerate(data):
             for col_idx, value in enumerate(row):
@@ -640,6 +658,19 @@ class GalleryCellTable(QTableWidget):
             self.setRowHeight(row_idx, self.row_height)
 
         total_height = self.row_height * self.rowCount()
+        self.setFixedHeight(total_height)
+
+    def set_rows(self, headers):
+        visible_rows = 0
+        for row in range(self.rowCount()):
+            item = self.item(row, 0)
+            if item and item.text() in headers:
+                self.setRowHidden(row, False)
+                visible_rows += 1
+            else:
+                self.setRowHidden(row, True)
+
+        total_height = self.row_height * visible_rows
         self.setFixedHeight(total_height)
 
     def hide_row(self, row_index):
@@ -752,6 +783,10 @@ class GalleryCell(StyledWidget):
         if new_tags is not None:
             self.data['tags'] = new_tags.copy()
 
+    def update_details(self, details):
+        self.details.set_rows(details)
+        self.details.hide() if not details else self.details.show()
+
     def check_visibility(self):
         hovered = self.underMouse()
         self.edit_button.setVisible(hovered)
@@ -793,6 +828,7 @@ class Gallery(StyledWidget):
         self.cell_width = 10
         self.cells_max = 30
         self.parent = parent
+        self.details = []
 
         date_time= QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss")
 
@@ -822,34 +858,7 @@ class Gallery(StyledWidget):
             "tags": [],
             "tag_mode": "any"
         }
-
-        self.filters_default = {
-            "id": 0,
-            "filename": "",
-            "is_favourite": None,
-            "type": "Any",
-            "format": "Any",
-            "camera_model": "Any",
-            "filesize_min": 0,
-            "filesize_max": 0,
-            "height_min": 0,
-            "height_max": 0,
-            "width_min": 0,
-            "width_max": 0,
-            "times_viewed_min": 0,
-            "times_viewed_max": 0,
-            "time_viewed_min": 0,
-            "time_viewed_max": 0,
-            "date_captured_min": date_time,
-            "date_captured_max": date_time,
-            "date_added_min": date_time,
-            "date_added_max": date_time,
-            "sort_value": "id",
-            "sort_dir": False,
-            "tags": [],
-            "tag_mode": "any"
-        }
-
+        
         self.filters_active = {
             "id": False,
             "filename": False,
@@ -892,6 +901,15 @@ class Gallery(StyledWidget):
         self.scroll_area.setObjectName("gallery_border")
         self.content_widget.setObjectName("gallery_background")
 
+    def update_details(self, detail=None):
+        if detail:
+            if detail in self.details:
+                self.details.remove(detail)
+            else:
+                self.details.append(detail)
+        for cell in self.cells:
+            cell.update_details(self.details)
+
     def get_image_paths(self):
         paths = []
         for cell in self.cells:
@@ -916,6 +934,7 @@ class Gallery(StyledWidget):
             i += 1
 
         self.update_cell_sizes()
+        self.update_details()
 
     def add_cell(self, widget):
         row = self.cell_count // self.columns
@@ -1381,11 +1400,24 @@ class TextInput(QLineEdit):
         self.clear()
 
 class TextButton(StyledButton):
-    def __init__(self, text, height=None, parent=None):
+    on_toggle = pyqtSignal(str)
+    
+    def __init__(self, text, height=None, toggle_class=None, parent=None):
         super().__init__(text=text, parent=parent)
         if height is not None:
             self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed if height == "fixed" else QSizePolicy.Expanding)
+        if toggle_class is not None:
+            self.toggle_class = toggle_class
+            self.is_active = False
+            self.clicked.connect(self.toggle_active)
 
+    def toggle_active(self):
+        self.is_active = not self.is_active
+        self.setObjectName(self.toggle_class if self.is_active else "")
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.on_toggle.emit(self.text())
+        
 class DateTimeRangeInput(StyledWidget):
     on_filter_changed = pyqtSignal(str, object)
     
@@ -1677,6 +1709,7 @@ class MediaControlBar(StyledWidget):
         spacer.setFixedHeight(height)
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.layout().addWidget(spacer)
+        return spacer
 
     def set_play_icon(self, val):
         self.play_button.update_icon(not val)
