@@ -73,7 +73,6 @@ class MainWindow(QMainWindow):
         self.widgets_filter = []
 
         self.db = MediaDatabase()
-        self.db.add_tag_to_images("Landscape", [4, 5, 6, 7])
 
         # Sidebar 1
         self.sidebar1 = Sidebar()
@@ -369,13 +368,13 @@ class MainWindow(QMainWindow):
             self.gallery.filters_active[filter_key] = value
         else:
             print("Filter key does not exist.")
-
+    
     def update_filter(self, filter_key, value):
         if filter_key in self.gallery.filters:
             self.gallery.filters[filter_key] = value
         else:
             print("Filter key does not exist.")
-            
+    
     def update_filter_tags(self, tag, is_active):
         tags = self.gallery.filters.setdefault("tags", [])
 

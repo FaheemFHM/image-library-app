@@ -76,6 +76,20 @@ class MediaDatabase:
 
         self.conn.commit()
 
+    def refresh_database(self):
+        cursor = self.conn.cursor()
+
+        try:
+            cursor.execute("DROP TABLE IF EXISTS media_tags")
+            cursor.execute("DROP TABLE IF EXISTS tags")
+            cursor.execute("DROP TABLE IF EXISTS media")
+            self.conn.commit()
+        except sqlite3.Error as e:
+            print(f"Error dropping tables: {e}")
+
+        self.create_tables()
+        self.populate_media()
+
     def populate_media(self):
         cursor = self.conn.cursor()
         supported_exts = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.mp4', '.avi', '.mov', '.mkv'}
@@ -90,8 +104,9 @@ class MediaDatabase:
 
             file_type = "video" if file.suffix.lower() in {'.mp4', '.avi', '.mov', '.mkv'} else "image"
             filesize = file.stat().st_size
-            
-            date_added = datetime.fromtimestamp(file.stat().st_ctime).strftime("%Y-%m-%d %H:%M:%S")
+
+            # Use st_mtime (modification time) instead of st_ctime (platform dependent)
+            date_added = datetime.fromtimestamp(file.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
 
             width = height = None
             format_ = None
@@ -105,7 +120,14 @@ class MediaDatabase:
                         format_ = img.format
                         exif_data = img._getexif()
                         if exif_data:
-                            date_captured = exif_data.get(36867)
+                            # EXIF tag 36867 = DateTimeOriginal
+                            raw_date = exif_data.get(36867)
+                            if raw_date:
+                                try:
+                                    date_captured = datetime.strptime(raw_date, "%Y:%m:%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+                                except Exception:
+                                    pass
+                            # EXIF tag 272 = Model (camera)
                             camera_model = exif_data.get(272)
                 except Exception as e:
                     print(f"Metadata error for {file.name}: {e}")
@@ -297,10 +319,17 @@ class MediaDatabase:
                 max_val = filters.get(max_key)
 
                 if min_val is not None:
-                    where_clauses.append(f"m.{col} >= ?")
+                    if "date" in col:
+                        where_clauses.append(f"datetime(m.{col}) >= datetime(?)")
+                    else:
+                        where_clauses.append(f"m.{col} >= ?")
                     params.append(min_val)
+
                 if max_val is not None:
-                    where_clauses.append(f"m.{col} <= ?")
+                    if "date" in col:
+                        where_clauses.append(f"datetime(m.{col}) <= datetime(?)")
+                    else:
+                        where_clauses.append(f"m.{col} <= ?")
                     params.append(max_val)
 
         # tags

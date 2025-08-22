@@ -148,3 +148,14 @@ QTableWidget::item {
 	color: white;
 	font-size: 14px;
 }
+
+QCheckBox {
+	color: white;
+	padding: 2px 8px;
+}
+
+QCheckBox::indicator {
+	width: 18px;
+	height: 18px;
+	margin-left: 6px;
+}
