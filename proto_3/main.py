@@ -1362,6 +1362,8 @@ class TagEdit(StyledWidget):
         self.hide()
 
     def open(self, tag):
+        if self.my_tag:
+            self.close()
         self.my_tag = tag
         self.my_tag.set_editing(True)
         self.input_field.setPlaceholderText(f"Edit: {self.my_tag.tag_name}")
@@ -1370,6 +1372,7 @@ class TagEdit(StyledWidget):
 
     def close(self):
         self.my_tag.set_editing(False)
+        self.my_tag = None
         self.hide()
 
 class TagList(StyledWidget):
