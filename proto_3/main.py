@@ -2,6 +2,7 @@
 
 import sys
 import re
+import string
 from pathlib import Path
 from functools import partial
 import random
@@ -1367,6 +1368,10 @@ class TagEdit(StyledWidget):
         self.input_field.setText(self.my_tag.tag_name)
         self.show()
 
+    def close(self):
+        self.my_tag.set_editing(False)
+        self.hide()
+
 class TagList(StyledWidget):
     on_delete = pyqtSignal(object)
     on_add = pyqtSignal(str)
@@ -1399,12 +1404,12 @@ class TagList(StyledWidget):
         layout.addWidget(self.scroll_area)
 
         self.tag_edit = TagEdit(parent=self)
-        self.tag_edit.on_submit.connect(self.on_edit.emit)
+        self.tag_edit.on_submit.connect(self.attempt_edit)
         layout.addWidget(self.tag_edit)
 
         if not self.read_only:
             self.tag_add = InputWithIcon("Add Tag...", "../icons/plus.png", 32, 20)
-            self.tag_add.submit.connect(self.on_add.emit)
+            self.tag_add.submit.connect(self.attempt_add)
             layout.addWidget(self.tag_add)
 
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -1418,6 +1423,18 @@ class TagList(StyledWidget):
         self.content_layout.removeWidget(tag)
         tag.setParent(None)
         tag.deleteLater()
+
+    def attempt_add(self, new_name):
+        new_name = self.sanitise(new_name)
+        if not new_name:
+            return
+        self.on_add.emit(new_name)
+    
+    def attempt_edit(self, old_name, new_name):
+        new_name = self.sanitise(new_name)
+        if not new_name:
+            return
+        self.on_edit.emit(old_name, new_name)
 
     def add_tag(self, tag_name, insert_alpha=False):
         tag_row = TagRow(tag_name, read_only=self.read_only, parent=self)
@@ -1455,12 +1472,27 @@ class TagList(StyledWidget):
         self.tag_edit.open(tag)
 
     def close_edit(self, new_tag_name):
-        widget = self.tag_edit.my_tag
-        widget.set_editing(False)
-        widget.set_text(new_tag_name)
-        self.tag_edit.hide()
+        self.tag_edit.my_tag.set_text(new_tag_name)
+        self.tag_edit.close(new_tag_name)
         self.scroll_area.verticalScrollBar().setEnabled(True)
         self.tag_add.show()
+
+    def sanitise(self, s):
+        s = s.strip()
+
+        if not s:
+            return None
+
+        s = re.sub(r"\s+", "_", s)
+
+        disallowed_chars = [
+            "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "+", "=", 
+            "{", "}", "[", "]", "|", "\\", ":", ";", "\"", "'", "<", ">", 
+            ",", ".", "?", "/", "~", "`", "."
+        ]
+        s = "".join(c for c in s if c not in disallowed_chars)
+        
+        return s if s else None
 
 class Dropdown(QComboBox):
     on_filter_changed = pyqtSignal(str, object)
