@@ -255,6 +255,7 @@ class MainWindow(QMainWindow):
         self.tag_list = TagList()
         self.tag_list.on_delete.connect(self.delete_tag)
         self.tag_list.on_add.connect(self.add_tag)
+        self.tag_list.on_edit.connect(self.edit_tag)
         self.all_tags = self.db.get_all_tags()
         for tag in self.all_tags:
             widget = self.tag_list.add_tag(tag)
@@ -356,6 +357,11 @@ class MainWindow(QMainWindow):
             self.all_tags.append(tag)
         else:
             print(f"Failed to add tag: {tag}")
+    
+    def edit_tag(self, old_tag, new_tag):
+        edited = self.db.rename_tag(old_tag, new_tag)
+        if edited:
+            self.all_tags = [new_tag if t == old_tag else t for t in self.all_tags]
 
     def delete_tag(self, tag):
         tag_name = tag.tag_name
@@ -1282,6 +1288,10 @@ class TagRow(StyledWidget):
         self.edit_button.hide()
         super().leaveEvent(event)
 
+    def set_text(self, txt):
+        self.tag_name = txt
+        self.tag_button.setText(txt)
+
     def toggle_active(self):
         self.set_active(not self.is_active)
 
@@ -1313,7 +1323,7 @@ class TagRow(StyledWidget):
         self.tag_button.update()
 
 class TagEdit(StyledWidget):
-    on_submit = pyqtSignal(object)
+    on_submit = pyqtSignal(object, str)
     
     def __init__(self, height=32, my_tag=None, parent=None):
         super().__init__(parent)
@@ -1344,16 +1354,21 @@ class TagEdit(StyledWidget):
         self.submit_button.setIconSize(QSize(16, 16))
         self.submit_button.setFixedSize(height, height)
         self.submit_button.setCursor(Qt.PointingHandCursor)
-        self.submit_button.clicked.connect(self.on_submit.emit)
+        self.submit_button.clicked.connect(self.submit)
         layout.addWidget(self.submit_button)
 
         self.hide()
+
+    def submit(self):
+        new_tag_name = self.input_field.text()
+        self.on_submit.emit(self.my_tag, new_tag_name)
+        self.close()
 
     def open(self, tag):
         self.my_tag = tag
         self.my_tag.set_editing(True)
         self.input_field.setPlaceholderText(f"Edit: {self.my_tag.tag_name}")
-        self.input_field.clear()
+        self.input_field.setText(self.my_tag.tag_name)
         self.show()
 
     def close(self):
@@ -1364,6 +1379,7 @@ class TagEdit(StyledWidget):
 class TagList(StyledWidget):
     on_delete = pyqtSignal(object)
     on_add = pyqtSignal(str)
+    on_edit = pyqtSignal(str, str)
     
     def __init__(self, read_only=False, parent=None):
         super().__init__(parent)
@@ -1392,6 +1408,7 @@ class TagList(StyledWidget):
         layout.addWidget(self.scroll_area)
 
         self.tag_edit = TagEdit(parent=self)
+        self.tag_edit.on_submit.connect(self.edit_tag)
         layout.addWidget(self.tag_edit)
 
         if not self.read_only:
@@ -1410,6 +1427,11 @@ class TagList(StyledWidget):
         self.content_layout.removeWidget(tag)
         tag.setParent(None)
         tag.deleteLater()
+
+    def edit_tag(self, tag_widget, new_tag_name):
+        old_tag_name = tag_widget.tag_name
+        tag_widget.set_text(new_tag_name)
+        self.on_edit.emit(old_tag_name, new_tag_name)
 
     def add_tag(self, tag_name, insert_alpha=False):
         tag_row = TagRow(tag_name, read_only=self.read_only, parent=self)

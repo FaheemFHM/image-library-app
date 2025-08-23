@@ -49,6 +49,25 @@ class MediaDatabase:
         self.conn.commit()
         return True
 
+    def rename_tag(self, old_name, new_name):
+        cursor = self.conn.cursor()
+
+        cursor.execute("SELECT id FROM tags WHERE name = ?", (old_name,))
+        tag_row = cursor.fetchone()
+        if not tag_row:
+            return False
+
+        tag_id = tag_row[0]
+
+        cursor.execute("SELECT id FROM tags WHERE name = ?", (new_name,))
+        if cursor.fetchone():
+            return False
+
+        cursor.execute("UPDATE tags SET name = ? WHERE id = ?", (new_name, tag_id))
+
+        self.conn.commit()
+        return True
+
     def create_tables(self):
         cursor = self.conn.cursor()
 
