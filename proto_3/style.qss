@@ -76,17 +76,22 @@ QWidget[class="sidebar_sub_header_active"] {
 	border: 1px solid #07e9f5;
 }
 
+#tag_row_edit {
+	color: yellow;
+	border: 1px solid yellow;
+}
+
 InputWithIcon {
 }
 
 InputWithIcon QLineEdit {
 	padding-left: 5px;
 	border: 1px solid #07e9f5;
+	border-right: none;
 }
 
 InputWithIcon QPushButton {
 	border: 1px solid #07e9f5;
-	border-left: none;
 }
 
 QDateTimeEdit, QComboBox, QLineEdit, QSpinBox {
@@ -158,4 +163,13 @@ QCheckBox::indicator {
 	width: 18px;
 	height: 18px;
 	margin-left: 6px;
+}
+
+TagEdit QPushButton {
+	border: 1px solid #07e9f5;
+}
+
+TagEdit QLineEdit {
+	border-top: 1px solid #07e9f5;
+	border-bottom: 1px solid #07e9f5;
 }

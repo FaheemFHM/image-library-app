@@ -254,15 +254,12 @@ class MainWindow(QMainWindow):
         
         self.tag_list = TagList()
         self.tag_list.on_delete.connect(self.delete_tag)
+        self.tag_list.on_add.connect(self.add_tag)
         self.all_tags = self.db.get_all_tags()
         for tag in self.all_tags:
             widget = self.tag_list.add_tag(tag)
             widget.on_filter_changed.connect(self.update_filter_tags)
         self.sidebar2.add_widget(self.tag_list)
-
-        widget = InputWithIcon("Add Tag...", "../icons/plus.png", 32, 20)
-        widget.submit.connect(self.add_tag)
-        self.sidebar2.add_widget(widget)
 
         self.sidebar2.add_spacer(self.grid_spacing)
 
@@ -516,7 +513,7 @@ class GalleryCellEdit(StyledWidget):
         # Tag List
         self.sidebar.add_header("Tags", 32)
         
-        self.tag_list = TagList(anim=False)
+        self.tag_list = TagList(read_only=True)
         self.sidebar.add_widget(self.tag_list)
         
         self.sidebar.add_spacer(spacing)
@@ -1226,16 +1223,18 @@ class InputWithIcon(StyledWidget):
 
 class TagRow(StyledWidget):
     on_filter_changed = pyqtSignal(str, bool)
-    on_delete = pyqtSignal(object)
+    on_delete = pyqtSignal()
+    on_edit = pyqtSignal()
     
-    def __init__(self, tag_name, height=32, anim=True, parent=None):
+    def __init__(self, tag_name, height=32, read_only=False, parent=None):
         super().__init__(parent)
         self.setMouseTracking(True)
         self.setObjectName("tag_row")
-        self.anim = anim
+        self.read_only = read_only
         
         self.tag_name = tag_name
         self.is_active = False
+        self.is_editing = False
 
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1248,7 +1247,7 @@ class TagRow(StyledWidget):
         self.delete_button.setFixedSize(height, height)
         self.delete_button.setCursor(Qt.PointingHandCursor)
         self.delete_button.hide()
-        self.delete_button.clicked.connect(self.delete_tag)
+        self.delete_button.clicked.connect(self.on_delete.emit)
         layout.addWidget(self.delete_button)
 
         self.tag_button = QPushButton(tag_name)
@@ -1264,10 +1263,11 @@ class TagRow(StyledWidget):
         self.edit_button.setFixedSize(height, height)
         self.edit_button.setCursor(Qt.PointingHandCursor)
         self.edit_button.hide()
+        self.edit_button.clicked.connect(self.on_edit.emit)
         layout.addWidget(self.edit_button)
 
     def enterEvent(self, event):
-        if not self.anim:
+        if self.read_only:
             event.ignore()
             return
         self.delete_button.show()
@@ -1275,7 +1275,7 @@ class TagRow(StyledWidget):
         super().enterEvent(event)
 
     def leaveEvent(self, event):
-        if not self.anim:
+        if self.read_only:
             event.ignore()
             return
         self.delete_button.hide()
@@ -1285,28 +1285,91 @@ class TagRow(StyledWidget):
     def toggle_active(self):
         self.set_active(not self.is_active)
 
-    def delete_tag(self):
-        self.on_delete.emit(self.tag_name)
-
     def set_active(self, val: bool):
         self.is_active = val
-        self.tag_button.setObjectName("tag_row_button" if self.is_active else "")
+        self.update_style()
+        self.on_filter_changed.emit(self.tag_name, self.is_active)
+
+    def set_editing(self, val: bool):
+        self.is_editing = val
+        self.update_style()
+
+    def reset(self):
+        self.is_active = False
+        self.is_editing = False
+        self.update_style()
+
+    def update_style(self):
+        if self.is_editing:
+            class_name = "tag_row_edit"
+        elif self.is_active:
+            class_name = "tag_row_button"
+        else:
+            class_name = ""
+
+        self.tag_button.setObjectName(class_name)
         self.tag_button.style().unpolish(self.tag_button)
         self.tag_button.style().polish(self.tag_button)
         self.tag_button.update()
-        self.on_filter_changed.emit(self.tag_name, self.is_active)
 
-    def reset(self):
-        self.set_active(False)
+class TagEdit(StyledWidget):
+    on_submit = pyqtSignal(object)
+    
+    def __init__(self, height=32, my_tag=None, parent=None):
+        super().__init__(parent)
+        self.my_tag = my_tag
+        
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        self.setLayout(layout)
+
+        self.cancel_button = QPushButton()
+        self.cancel_button.setIcon(QIcon("../icons/cross.png"))
+        self.cancel_button.setIconSize(QSize(20, 20))
+        self.cancel_button.setFixedSize(height, height)
+        self.cancel_button.setCursor(Qt.PointingHandCursor)
+        self.cancel_button.clicked.connect(self.close)
+        layout.addWidget(self.cancel_button)
+
+        self.input_field = QLineEdit()
+        self.input_field.setPlaceholderText("Edit: tag")
+        self.input_field.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.input_field.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.input_field.setFixedHeight(height)
+        layout.addWidget(self.input_field)
+
+        self.submit_button = QPushButton()
+        self.submit_button.setIcon(QIcon("../icons/tick.png"))
+        self.submit_button.setIconSize(QSize(16, 16))
+        self.submit_button.setFixedSize(height, height)
+        self.submit_button.setCursor(Qt.PointingHandCursor)
+        self.submit_button.clicked.connect(self.on_submit.emit)
+        layout.addWidget(self.submit_button)
+
+        self.hide()
+
+    def open(self, tag):
+        self.my_tag = tag
+        self.my_tag.set_editing(True)
+        self.input_field.setPlaceholderText(f"Edit: {self.my_tag.tag_name}")
+        self.input_field.clear()
+        self.show()
+
+    def close(self):
+        self.my_tag.set_editing(False)
+        self.parent().close_edit()
+        self.hide()
 
 class TagList(StyledWidget):
     on_delete = pyqtSignal(object)
+    on_add = pyqtSignal(str)
     
-    def __init__(self, anim=True, parent=None):
+    def __init__(self, read_only=False, parent=None):
         super().__init__(parent)
 
         self.tags = []
-        self.anim = anim
+        self.read_only = read_only
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1322,10 +1385,19 @@ class TagList(StyledWidget):
         self.content_layout = QVBoxLayout(self.content_widget)
         self.content_layout.setContentsMargins(0, 0, 0, 0)
         self.content_layout.setSpacing(0)
+        
         self.content_layout.addStretch()
 
         self.scroll_area.setWidget(self.content_widget)
         layout.addWidget(self.scroll_area)
+
+        self.tag_edit = TagEdit(parent=self)
+        layout.addWidget(self.tag_edit)
+
+        if not self.read_only:
+            self.tag_add = InputWithIcon("Add Tag...", "../icons/plus.png", 32, 20)
+            self.tag_add.submit.connect(self.on_add.emit)
+            layout.addWidget(self.tag_add)
 
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
@@ -1340,7 +1412,7 @@ class TagList(StyledWidget):
         tag.deleteLater()
 
     def add_tag(self, tag_name, insert_alpha=False):
-        tag_row = TagRow(tag_name, anim=self.anim, parent=self)
+        tag_row = TagRow(tag_name, read_only=self.read_only, parent=self)
         self.tags.append(tag_row)
         
         if insert_alpha:
@@ -1358,6 +1430,7 @@ class TagList(StyledWidget):
             self.content_layout.insertWidget(self.content_layout.count() - 1, tag_row)
 
         tag_row.on_delete.connect(lambda: self.on_delete.emit(tag_row))
+        tag_row.on_edit.connect(lambda: self.open_edit(tag_row))
         return tag_row
 
     def clear_tags(self):
@@ -1367,6 +1440,15 @@ class TagList(StyledWidget):
             if widget is not None:
                 widget.setParent(None)
         self.tags.clear()
+
+    def open_edit(self, tag):
+        self.scroll_area.verticalScrollBar().setEnabled(False)
+        self.tag_add.hide()
+        self.tag_edit.open(tag)
+
+    def close_edit(self):
+        self.scroll_area.verticalScrollBar().setEnabled(True)
+        self.tag_add.show()
 
 class Dropdown(QComboBox):
     on_filter_changed = pyqtSignal(str, object)
