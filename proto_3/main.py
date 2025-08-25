@@ -265,7 +265,11 @@ class MainWindow(QMainWindow):
 
         self.sidebar2.add_spacer(self.grid_spacing)
 
-        self.sidebar2.add_header("Details", 32)
+        self.sidebar2.add_header("Other", 32)
+        
+        self.sidebar2.add_spacer(self.grid_spacing)
+        
+        self.sidebar2.add_subheader_flat("Details", 24)
 
         items = ["Dimensions", "Filesize", "Camera Model", "Times Viewed",
                  "Duration Viewed", "Date Captured", "Date Added"]
@@ -273,6 +277,16 @@ class MainWindow(QMainWindow):
             btn = TextButton(item, toggle_class="tag_row_button", height="fixed")
             btn.on_toggle.connect(lambda _, i=item: self.update_details(i))
             self.sidebar2.add_widget(btn, 24)
+        
+        self.sidebar2.add_spacer(self.grid_spacing)
+        
+        self.sidebar2.add_subheader_flat("Columns", 24)
+
+        gallery_cols_max, gallery_cols = 7, 4
+        
+        col_input = IntInput(min_val=1, max_val=gallery_cols_max, val=gallery_cols_max)
+        col_input.on_filter_changed.connect(self.edit_columns)
+        self.sidebar2.add_widget(col_input, 24)
         
         self.sidebar2.add_spacer(self.grid_spacing)
 
@@ -300,7 +314,7 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(0)
 
         # Gallery
-        self.gallery = Gallery(columns=4, parent=self)
+        self.gallery = Gallery(columns=gallery_cols_max, parent=self)
         self.gallery.edit_cell.connect(self.open_gallery_edit)
         main_layout.addWidget(self.gallery)
 
@@ -349,6 +363,9 @@ class MainWindow(QMainWindow):
 
     def update_details(self, detail):
         self.gallery.update_details(detail)
+
+    def edit_columns(self, _, amount):
+        self.gallery.set_columns(amount)
 
     def add_tag(self, tag):
         added = self.db.add_tag(tag)
@@ -836,6 +853,7 @@ class Gallery(StyledWidget):
         super().__init__(parent)
 
         self.columns = columns
+        self.columns_max = 10
         self.spacing = spacing
         self.cell_count = 0
         self.cells = []
@@ -957,6 +975,13 @@ class Gallery(StyledWidget):
         self.cells.append(widget)
         self.cell_count += 1
         widget.edit_cell.connect(self.edit_cell.emit)
+
+    def set_columns(self, val, do_set=True):
+        if do_set:
+            self.columns = max(1, min(val, self.columns_max))
+        else:
+            self.columns = max(1, min(self.columns + val, self.columns_max))
+        self.resize()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -1307,9 +1332,8 @@ class TagRow(StyledWidget):
         self.update_style()
 
     def reset(self):
-        self.is_active = False
         self.is_editing = False
-        self.update_style()
+        self.set_active(False)
 
     def update_style(self):
         if self.is_editing:
@@ -1489,8 +1513,8 @@ class TagList(StyledWidget):
         s = re.sub(r"\s+", "_", s)
 
         disallowed_chars = [
-            "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "+", "=", 
-            "{", "}", "[", "]", "|", "\\", ":", ";", "\"", "'", "<", ">", 
+            "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "+", "=",
+            "{", "}", "[", "]", "|", "\\", ":", ";", "\"", "'", "<", ">",
             ",", ".", "?", "/", "~", "`", "."
         ]
         s = "".join(c for c in s if c not in disallowed_chars)
@@ -1679,7 +1703,7 @@ class RangeInput(QWidget):
 class IntInput(QWidget):
     on_filter_changed = pyqtSignal(str, object)
     
-    def __init__(self, min_val=0, max_val=100, height=None, filter_key=None, parent=None):
+    def __init__(self, min_val=0, max_val=100, val=1, height=None, filter_key=None, parent=None):
         super().__init__(parent)
         self.filter_key = filter_key
         self.min_val = min_val
@@ -1692,16 +1716,17 @@ class IntInput(QWidget):
 
         self.input = QSpinBox()
         self.set_range(min_val, max_val)
+        self.input.setValue(val)
         self.input.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.input.valueChanged.connect(self._on_change)
 
         if height is not None:
             self.input.setFixedHeight(height)
 
-        self.input.setValue(min_val)
         layout.addWidget(self.input)
 
     def _on_change(self, value):
+        value = max(self.min_val, min(value, self.max_val))
         self.on_filter_changed.emit(self.filter_key, value)
 
     def get_value(self):
