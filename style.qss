@@ -1,0 +1,174 @@
+
+/*
+Primary: #181818;
+Secondary: #282828;
+Tertiary: #383838;
+Accent: #07e9f5;
+Text: #ffffff;
+*/
+
+QMainWindow {
+	background-color: #181818;
+}
+
+QLabel {
+	color: #ffffff;
+}
+
+QPushButton {
+	color: #ffffff;
+	background: #282828;
+	border: none;
+	border-radius: 0px;
+	padding: 0px;
+	margin: 0px;
+}
+
+QPushButton:hover, QDateTimeEdit:hover, QComboBox:hover, QLineEdit:hover, QSpinBox:hover {
+	background: #383838;
+}
+
+QDateTimeEdit, QComboBox, QLineEdit, QSpinBox {
+	border: none;
+	background: transparent;
+	color: white;
+}
+
+QLabel[class="padded_label"] {
+	padding-left: 10px;
+}
+
+QWidget[class="sidebar"] {
+	background: #282828;
+	color: #ffffff;
+}
+
+QLabel[class="sidebar_header"] {
+	color: #282828;
+	background: #07e9f5;
+	font-weight: 500;
+	font-size: 16px;
+}
+
+QWidget[class="sidebar_sub_header"] {
+	color: #07e9f5;
+	font-weight: 500;
+	border: 1px solid #282828;
+}
+
+
+QWidget[class="sidebar_sub_header_active"] {
+	color: #07e9f5;
+	font-weight: 500;
+	border: 1px solid #07e9f5;
+}
+
+#tag_list_scroll {
+	border: none;
+}
+
+#tag_list_content {
+	background: #282828;
+}
+
+#tag_row_button {
+	color: #07e9f5;
+	border: 1px solid #07e9f5;
+}
+
+#tag_row_edit {
+	color: yellow;
+	border: 1px solid yellow;
+}
+
+InputWithIcon {
+}
+
+InputWithIcon QLineEdit {
+	padding-left: 5px;
+	border: 1px solid #07e9f5;
+	border-right: none;
+}
+
+InputWithIcon QPushButton {
+	border: 1px solid #07e9f5;
+}
+
+QDateTimeEdit, QComboBox, QLineEdit, QSpinBox {
+	padding-left: 10px;
+}
+
+#gallery_background {
+	background: #181818;
+}
+
+#gallery_border {
+	border: none;
+}
+
+#cell_image {
+	background: #282828;
+}
+
+#cell_footer {
+	background: #282828;
+}
+
+#cell_id {
+	color: #07e9f5;
+	font-weight: 700;
+}
+
+#media_spacer {
+	background: #181818;
+}
+
+#apply_button {
+	color: #07e9f5;
+	font-weight: 600;
+}
+
+#tag_filter_mode {
+	border: 1px solid #07e9f5;
+}
+
+QWidget[class="clear_spacing"] {
+	padding: 0px;
+	margin: 0px;
+}
+
+QTableWidget {
+	background-color: #282828;
+	border: none;
+	gridline-color: transparent;
+}
+
+QTableWidget::item {
+	padding: 0px;
+	padding-left: 5px;
+	margin: 0px;
+	border: none;
+	background-color: transparent;
+	color: white;
+	font-size: 12px;
+}
+
+QCheckBox {
+	color: white;
+	padding: 2px 8px;
+}
+
+QCheckBox::indicator {
+	width: 18px;
+	height: 18px;
+	margin-left: 6px;
+}
+
+TagEdit QPushButton {
+	border: 1px solid #07e9f5;
+}
+
+TagEdit QLineEdit {
+	border-top: 1px solid #07e9f5;
+	border-bottom: 1px solid #07e9f5;
+}
