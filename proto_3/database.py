@@ -1,11 +1,46 @@
+
 from pathlib import Path
 import sqlite3
 from datetime import datetime
 from PIL import Image
 import time
 
+from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
+
 DB_PATH = "database.db"
 MEDIA_PATH = Path.cwd() / "../media"
+
+class DatabaseWorker(QObject):
+    results_ready = pyqtSignal(str, object)
+    error = pyqtSignal(str, str)
+
+    def __init__(self, db_path):
+        super().__init__()
+        self.db_path = db_path
+        self.db = None
+
+    @pyqtSlot()
+    def init_db(self):
+        self.db = MediaDatabase(self.db_path)
+
+    @pyqtSlot(str, object, object)
+    def run_task(self, method_name, args=(), kwargs=None):
+        try:
+            if self.db is None:
+                raise RuntimeError("Database not initialized")
+
+            if not hasattr(self.db, method_name):
+                raise AttributeError(f"MediaDatabase has no method '{method_name}'")
+
+            if kwargs is None:
+                kwargs = {}
+
+            method = getattr(self.db, method_name)
+            result = method(*args, **kwargs)
+            self.results_ready.emit(method_name, result)
+
+        except Exception as e:
+            self.error.emit(method_name, str(e))
 
 class MediaDatabase:
     def __init__(self, db_path=DB_PATH, media_path=MEDIA_PATH):

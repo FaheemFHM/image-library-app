@@ -8,7 +8,7 @@ from functools import partial
 import random
 import time
 
-from database import MediaDatabase
+from database import MediaDatabase, DatabaseWorker
 
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QMainWindow,
@@ -73,11 +73,15 @@ class MainWindow(QMainWindow):
         self.widgets_sort = []
         self.widgets_filter = []
 
-        self.db = MediaDatabase()
+        #self.db = DatabaseWorker("database.db")
+        self.db = MediaDatabase("database.db")
 
         # Sidebar 1
         self.sidebar1 = Sidebar()
+        
         self.sidebar1.add_header("Search", 32)
+
+        self.sidebar1.add_spacer(self.grid_spacing)
 
         subheader = self.sidebar1.add_subheader("Filename", height=24, filter_key="filename")
         self.widgets_search.append(subheader)
@@ -98,6 +102,8 @@ class MainWindow(QMainWindow):
         self.sidebar1.add_spacer(self.grid_spacing)
         
         self.sidebar1.add_header("Sort", 32)
+
+        self.sidebar1.add_spacer(self.grid_spacing)
         
         widget = Dropdown(["Name", "ID", "Size", "Height", "Width",
                            "Times Viewed", "Duration Viewed",
@@ -120,6 +126,8 @@ class MainWindow(QMainWindow):
         self.sidebar1.add_spacer(self.grid_spacing)
         
         self.sidebar1.add_header("Filters", 32)
+
+        self.sidebar1.add_spacer(self.grid_spacing)
         
         subheader = self.sidebar1.add_subheader("Favourite", height=24, filter_key="is_favourite")
         self.widgets_filter.append(subheader)
@@ -220,6 +228,8 @@ class MainWindow(QMainWindow):
         self.sidebar1.add_spacer(self.grid_spacing)
         
         self.sidebar1.add_header("Reset", 32)
+
+        self.sidebar1.add_spacer(self.grid_spacing)
         
         widget = TextButton("Search", height="expanding")
         widget.clicked.connect(lambda: self.reset_filters("search"))
@@ -245,6 +255,8 @@ class MainWindow(QMainWindow):
         self.sidebar2 = Sidebar()
         
         self.sidebar2.add_header("Tags", 32)
+
+        self.sidebar2.add_spacer(self.grid_spacing)
 
         self.tag_filter_mode = Dropdown(["Any", "All", "Exact", "None"],
                           values=["any", "all", "exact", "none"],
@@ -283,7 +295,6 @@ class MainWindow(QMainWindow):
         self.sidebar2.add_subheader_flat("Columns", 24)
 
         gallery_cols_max, gallery_cols = 7, 4
-        
         col_input = IntInput(min_val=1, max_val=gallery_cols_max, val=gallery_cols_max)
         col_input.on_filter_changed.connect(self.edit_columns)
         self.sidebar2.add_widget(col_input, 24)
@@ -343,6 +354,7 @@ class MainWindow(QMainWindow):
 
         self.apply_filters()
         self.gallery.update_details()
+        col_input.set_value(gallery_cols)
 
     def open_gallery_edit(self, data, cell):
         self.gallery.hide()
@@ -1732,6 +1744,10 @@ class IntInput(QWidget):
     def get_value(self):
         return self.input.value()
 
+    def set_value(self, value):
+        value = max(self.min_val, min(value, self.max_val))
+        self.input.setValue(value)
+
     def set_range(self, min_value=None, max_value=None):
         self.min_val = min_value if min_value is not None else self.min_val
         self.max_val = max_value if max_value is not None else self.max_val
@@ -1842,25 +1858,12 @@ class MediaControlBar(StyledWidget):
         button = IconButton("../icons/restart.png")
         layout.addWidget(button, alignment=Qt.AlignHCenter)
         button.clicked.connect(lambda: self.window().restart())
+        layout.addWidget(button, alignment=Qt.AlignHCenter)
 
         self.add_spacer(self.parent.grid_spacing)
 
         self.slider = VerticalSlider()
         self.layout().addWidget(self.slider, alignment=Qt.AlignHCenter)
-
-        self.add_spacer(self.parent.grid_spacing)
-
-        #button = IconButton("../icons/fastest_forwards.png")
-        #layout.addWidget(button, alignment=Qt.AlignHCenter)
-
-        #button = IconButton("../icons/fastest_backwards.png")
-        #layout.addWidget(button, alignment=Qt.AlignHCenter)
-
-        #button = IconButton("../icons/skip_forwards.png")
-        #layout.addWidget(button, alignment=Qt.AlignHCenter)
-
-        #button = IconButton("../icons/skip_backwards.png")
-        layout.addWidget(button, alignment=Qt.AlignHCenter)
 
         self.add_spacer(self.parent.grid_spacing)
 
