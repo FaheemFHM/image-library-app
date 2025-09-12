@@ -27,17 +27,7 @@ This project was intented to:
 
 ## Project Structure
 
-image-library-app/
-│
-├── main.py              # Entry point
-├── components/          # UI components
-│   ├── gallery.py
-│   ├── viewer.py
-│   └── ...
-├── icons/               # App icons
-├── media/               # Image files
-├── legacy/              # Old folder-based commits
-└── README.md
+
 
 ## Sample Roadmap
 
