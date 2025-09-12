@@ -39,8 +39,8 @@ This project was intented to:
 
 ## License
 
-MIT License: feel free to use and adapt.
+MIT License - feel free to use and adapt.
 
 ## Extra
 
-Built as a learning project during my university break - this project has been temporarily paused for other commitments.
+Built as a learning project during my university break. Development is ongoing, with planned future improvements.
