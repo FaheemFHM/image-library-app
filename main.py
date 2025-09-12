@@ -27,7 +27,7 @@ from PyQt5.QtGui import (
 from PyQt5.QtCore import (
     Qt, QSize, QTimer, QDateTime, QDate, QTime,
     QPropertyAnimation, QPoint, QRect, QObject,
-    pyqtSignal
+    pyqtSignal, QMetaObject, Q_ARG, QThread
 )
 
 def load_stylesheet(path):
@@ -72,9 +72,14 @@ class MainWindow(QMainWindow):
         self.widgets_search = []
         self.widgets_sort = []
         self.widgets_filter = []
-
-        #self.db = DatabaseWorker("database.db")
-        self.db = MediaDatabase("database.db")
+        
+        self.db = DatabaseWorker("database.db")
+        self.db.results_ready.connect(self.handle_results)
+        self.db.error.connect(self.handle_error)
+        
+        self.db_thread = QThread()
+        self.db.moveToThread(self.db_thread)
+        self.db_thread.start()
 
         # Sidebar 1
         self.sidebar1 = Sidebar()
@@ -128,7 +133,8 @@ class MainWindow(QMainWindow):
         self.sidebar1.add_header("Filters", 32)
 
         self.sidebar1.add_spacer(self.grid_spacing)
-        
+
+        # Favourite
         subheader = self.sidebar1.add_subheader("Favourite", height=24, filter_key="is_favourite")
         self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
@@ -139,35 +145,23 @@ class MainWindow(QMainWindow):
         self.widgets_filter.append(widget)
         self.sidebar1.add_widget(widget, 24)
         
+        # File Type
         subheader = self.sidebar1.add_subheader("File Type", height=24, filter_key="type")
         self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
-        my_array = self.db.get_unique_values("type")
-        my_array = [x for x in my_array if x is not None]
-        widget = Dropdown(my_array, filter_key="type")
-        widget.on_filter_changed.connect(self.update_filter)
-        self.widgets_filter.append(widget)
-        self.sidebar1.add_widget(widget, 24)
-        
+        self.call_worker("get_unique_values", "type", context="filter_type")
+
+        # Format
         subheader = self.sidebar1.add_subheader("Format", height=24, filter_key="format")
         self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
-        my_array = self.db.get_unique_values("format")
-        my_array = [x for x in my_array if x is not None]
-        widget = Dropdown(my_array, filter_key="format")
-        widget.on_filter_changed.connect(self.update_filter)
-        self.widgets_filter.append(widget)
-        self.sidebar1.add_widget(widget, 24)
-        
+        self.call_worker("get_unique_values", "format", context="filter_format")
+
+        # Camera
         subheader = self.sidebar1.add_subheader("Camera", height=24, filter_key="camera_model")
         self.widgets_filter.append(subheader)
         subheader.toggled.connect(self.update_filter_active)
-        my_array = self.db.get_unique_values("camera_model")
-        my_array = [x for x in my_array if x is not None]
-        widget = Dropdown(my_array, filter_key="camera_model")
-        widget.on_filter_changed.connect(self.update_filter)
-        self.widgets_filter.append(widget)
-        self.sidebar1.add_widget(widget, 24)
+        self.call_worker("get_unique_values", "camera_model", context="filter_camera")
         
         subheader = self.sidebar1.add_subheader("File Size", height=24, filter_key="filesize")
         self.widgets_filter.append(subheader)
@@ -258,31 +252,28 @@ class MainWindow(QMainWindow):
 
         self.sidebar2.add_spacer(self.grid_spacing)
 
+        # Tag Mode
         self.tag_filter_mode = Dropdown(["Any", "All", "Exact", "None"],
                           values=["any", "all", "exact", "none"],
                           filter_key="tag_mode")
         self.tag_filter_mode.on_filter_changed.connect(self.update_filter)
         self.tag_filter_mode.setObjectName("tag_filter_mode")
         self.sidebar2.add_widget(self.tag_filter_mode, 24)
-        
+
+        # Tag List
         self.tag_list = TagList()
         self.tag_list.on_delete.connect(self.delete_tag)
         self.tag_list.on_add.connect(self.add_tag)
         self.tag_list.on_edit.connect(self.edit_tag)
-        self.all_tags = self.db.get_all_tags()
-        for tag in self.all_tags:
-            widget = self.tag_list.add_tag(tag)
-            widget.on_filter_changed.connect(self.update_filter_tags)
         self.sidebar2.add_widget(self.tag_list)
+        self.call_worker("get_all_tags", context="all_tags")
 
         self.sidebar2.add_spacer(self.grid_spacing)
-
         self.sidebar2.add_header("Other", 32)
-        
         self.sidebar2.add_spacer(self.grid_spacing)
-        
-        self.sidebar2.add_subheader_flat("Details", 24)
 
+        # Details
+        self.sidebar2.add_subheader_flat("Details", 24)
         items = ["Dimensions", "Filesize", "Camera Model", "Times Viewed",
                  "Duration Viewed", "Date Captured", "Date Added"]
         for item in items:
@@ -291,9 +282,9 @@ class MainWindow(QMainWindow):
             self.sidebar2.add_widget(btn, 24)
         
         self.sidebar2.add_spacer(self.grid_spacing)
-        
-        self.sidebar2.add_subheader_flat("Columns", 24)
 
+        # Columns
+        self.sidebar2.add_subheader_flat("Columns", 24)
         gallery_cols_max, gallery_cols = 7, 4
         col_input = IntInput(min_val=1, max_val=gallery_cols_max, val=gallery_cols_max)
         col_input.on_filter_changed.connect(self.edit_columns)
@@ -301,13 +292,12 @@ class MainWindow(QMainWindow):
         
         self.sidebar2.add_spacer(self.grid_spacing)
 
+        # Apply Filters
         button = TextButton("Apply", height="fixed")
         button.setObjectName("apply_button")
         button.setFixedHeight(128)
         button.clicked.connect(self.apply_filters)
         self.sidebar2.add_widget(button)
-        
-        #self.sidebar2.add_stretch()
 
         # Media Control Bar
         self.media_controls = MediaControlBar(do_loop=self.do_loop,
@@ -325,7 +315,7 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(0)
 
         # Gallery
-        self.gallery = Gallery(columns=gallery_cols_max, parent=self)
+        self.gallery = Gallery(columns=gallery_cols_max, columns_max=gallery_cols_max, parent=self)
         self.gallery.edit_cell.connect(self.open_gallery_edit)
         main_layout.addWidget(self.gallery)
 
@@ -356,6 +346,100 @@ class MainWindow(QMainWindow):
         self.gallery.update_details()
         col_input.set_value(gallery_cols)
 
+    def call_worker(self, method_name, *args, **kwargs):
+        context = kwargs.pop("context", None)
+        QMetaObject.invokeMethod(
+            self.db,
+            "run_task",
+            Qt.QueuedConnection,
+            Q_ARG(str, method_name),
+            Q_ARG(object, args),
+            Q_ARG(object, kwargs),
+            Q_ARG(object, context)
+        )
+
+    def handle_results(self, method_name, result, context=None):
+        match method_name:
+            case "add_tag":
+                if result:
+                    widget = self.tag_list.add_tag(context, insert_alpha=True)
+                    widget.on_filter_changed.connect(self.update_filter_tags)
+                    self.all_tags.append(context)
+                else:
+                    print(f"Failed to add tag: {context}")
+
+            case "get_unique_values":
+                match context:
+                    case "filter_type":
+                        self.add_filter_dropdown("type", result)
+                    case "filter_format":
+                        self.add_filter_dropdown("format", result)
+                    case "filter_camera":
+                        self.add_filter_dropdown("camera_model", result)
+
+            case "rename_tag":
+                if result:
+                    _, old_tag, new_tag = context
+                    self.all_tags = [new_tag if t == old_tag else t for t in self.all_tags]
+                    self.tag_list.close_edit(new_tag)
+
+            case "remove_tag_by_name":
+                if result:
+                    _, tag_name = context
+                    self.all_tags.remove(tag_name)
+                    self.tag_list.delete_tag(tag_name)
+                    if not self.all_tags:
+                        self.gallery.filters['tags'].clear()
+
+            case "apply_filters" if context == "populate_gallery":
+                image_records = result
+                print(f"[DEBUG] Got {len(image_records)} records from DB")
+
+                self.gallery.clear_grid_layout(self.gallery.grid_layout)
+
+                i = 0
+                for record in image_records:
+                    if i >= self.gallery.cells_max:
+                        break
+                    self.gallery.add_cell(GalleryCell(record, window=self, parent=self.gallery))
+                    i += 1
+
+                self.gallery.update_cell_sizes()
+                self.gallery.update_details()
+
+            case "get_all_tags":
+                self.populate_tags(result)
+
+    def handle_error(self, method_name, error_message, context=None):
+        """
+        Handles errors from the DatabaseWorker.
+
+        Parameters:
+            method_name (str): The name of the DB method that failed.
+            error_message (str): The exception or error string.
+            context (optional): Any extra context passed when calling the worker.
+        """
+        print(f"[DB ERROR] Method: {method_name}, Context: {context}, Error: {error_message}")
+
+    def add_filter_dropdown(self, filter_key, items):
+        items = [x for x in items if x is not None]
+        dropdown = Dropdown(items, filter_key=filter_key)
+        dropdown.on_filter_changed.connect(self.update_filter)
+        self.widgets_filter.append(dropdown)
+
+        layout = self.sidebar1.layout()
+        for i in range(layout.count()):
+            item = layout.itemAt(i).widget()
+            if getattr(item, "filter_key", None) == filter_key:
+                layout.insertWidget(i + 1, dropdown)
+                break
+
+    def populate_tags(self, tags):
+        self.all_tags = tags
+        for tag in tags:
+            widget = self.tag_list.add_tag(tag)
+            widget.on_filter_changed.connect(self.update_filter_tags)
+
     def open_gallery_edit(self, data, cell):
         self.gallery.hide()
         self.sidebars_toggle(True, False, False)
@@ -364,9 +448,9 @@ class MainWindow(QMainWindow):
 
     def apply_gallery_edit(self, image_id, filename, tags):
         if filename:
-            self.db.set_image_filename(image_id, filename)
+            self.call_worker("set_image_filename", image_id, filename)
         if tags is not None:
-            self.db.set_image_tags(image_id, tags)
+            self.call_worker("set_image_tags", image_id, tags)
 
     def close_gallery_edit(self):
         self.gallery_edit.hide()
@@ -380,28 +464,15 @@ class MainWindow(QMainWindow):
         self.gallery.set_columns(amount)
 
     def add_tag(self, tag):
-        added = self.db.add_tag(tag)
-        if added:
-            widget = self.tag_list.add_tag(tag, insert_alpha=True)
-            widget.on_filter_changed.connect(self.update_filter_tags)
-            self.all_tags.append(tag)
-        else:
-            print(f"Failed to add tag: {tag}")
+        self.call_worker("add_tag", tag)
     
     def edit_tag(self, old_tag, new_tag):
-        edited = self.db.rename_tag(old_tag, new_tag)
-        if edited:
-            self.all_tags = [new_tag if t == old_tag else t for t in self.all_tags]
-            self.tag_list.close_edit(new_tag)
+        self.call_worker("rename_tag", old_tag, new_tag, context=("edit_tag", old_tag, new_tag))
+
 
     def delete_tag(self, tag):
         tag_name = tag.tag_name
-        delete_success = self.db.remove_tag_by_name(tag_name)
-        if delete_success:
-            self.tag_list.delete_tag(tag)
-            self.all_tags.remove(tag_name)
-        if not self.all_tags:
-            self.gallery.filters['tags'].clear()
+        self.call_worker("remove_tag_by_name", tag_name, context=("delete_tag", tag_name))
 
     def apply_filters(self):
         self.gallery.populate_gallery()
@@ -507,7 +578,7 @@ class MainWindow(QMainWindow):
         self.slideshow.set_shuffle(val)
 
     def toggle_favourite(self, image_id, toggled):
-        self.db.toggle_favourite(image_id, toggled)
+        self.call_worker("toggle_favourite", image_id, toggled, context=("toggle_favourite", image_id, toggled))
 
 class GalleryCellEdit(StyledWidget):
     close_edit = pyqtSignal()
@@ -861,11 +932,11 @@ class GalleryCell(StyledWidget):
 class Gallery(StyledWidget):
     edit_cell = pyqtSignal(object, object)
     
-    def __init__(self, columns=3, spacing=10, parent=None):
+    def __init__(self, columns=3, columns_max=10, spacing=10, parent=None):
         super().__init__(parent)
 
         self.columns = columns
-        self.columns_max = 10
+        self.columns_max = columns_max
         self.spacing = spacing
         self.cell_count = 0
         self.cells = []
@@ -968,17 +1039,12 @@ class Gallery(StyledWidget):
     def populate_gallery(self):
         self.clear_grid_layout(self.grid_layout)
 
-        image_records = self.parent.db.apply_filters(self.filters, self.filters_active)
-        
-        i = 0
-        for record in image_records:
-            if i >= self.cells_max:
-                break
-            self.add_cell(GalleryCell(record, window=self.parent, parent=self))
-            i += 1
-
-        self.update_cell_sizes()
-        self.update_details()
+        self.parent.call_worker(
+            "apply_filters",
+            self.filters,
+            self.filters_active,
+            context="populate_gallery"
+        )
 
     def add_cell(self, widget):
         row = self.cell_count // self.columns

@@ -11,8 +11,8 @@ DB_PATH = "database.db"
 MEDIA_PATH = Path.cwd() / "../media"
 
 class DatabaseWorker(QObject):
-    results_ready = pyqtSignal(str, object)
-    error = pyqtSignal(str, str)
+    results_ready = pyqtSignal(str, object, object) # method_name, result, context
+    error = pyqtSignal(str, str, object)            # method_name, error_message, context
 
     def __init__(self, db_path):
         super().__init__()
@@ -21,13 +21,14 @@ class DatabaseWorker(QObject):
 
     @pyqtSlot()
     def init_db(self):
-        self.db = MediaDatabase(self.db_path)
+        if self.db is None:
+            self.db = MediaDatabase(self.db_path)
 
-    @pyqtSlot(str, object, object)
-    def run_task(self, method_name, args=(), kwargs=None):
+    @pyqtSlot(str, object, object, object)
+    def run_task(self, method_name, args=(), kwargs=None, context=None):
         try:
             if self.db is None:
-                raise RuntimeError("Database not initialized")
+                self.init_db()
 
             if not hasattr(self.db, method_name):
                 raise AttributeError(f"MediaDatabase has no method '{method_name}'")
@@ -37,10 +38,11 @@ class DatabaseWorker(QObject):
 
             method = getattr(self.db, method_name)
             result = method(*args, **kwargs)
-            self.results_ready.emit(method_name, result)
+            self.results_ready.emit(method_name, result, context)
 
         except Exception as e:
-            self.error.emit(method_name, str(e))
+            self.error.emit(method_name, str(e), context)
+
 
 class MediaDatabase:
     def __init__(self, db_path=DB_PATH, media_path=MEDIA_PATH):
