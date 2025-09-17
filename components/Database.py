@@ -7,7 +7,7 @@ import time
 
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
-DB_PATH = "database.db"
+DB_PATH = "../database.db"
 MEDIA_PATH = Path.cwd() / "../media"
 
 class DatabaseWorker(QObject):
@@ -38,6 +38,7 @@ class DatabaseWorker(QObject):
 
             method = getattr(self.db, method_name)
             result = method(*args, **kwargs)
+            print(f"[QUERY] Emit results for: {method_name}")
             self.results_ready.emit(method_name, result, context)
 
         except Exception as e:
@@ -48,32 +49,40 @@ class MediaDatabase:
     def __init__(self, db_path=DB_PATH, media_path=MEDIA_PATH):
         self.db_path = db_path
         self.media_path = media_path
-        self.conn = self.connect()
+        self.conn = None  # connection created lazily
 
-    def connect(self):
-        return sqlite3.connect(self.db_path)
+    def get_conn(self):
+        """Always return a valid sqlite connection bound to the worker thread."""
+        if self.conn is None:
+            self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        return self.conn
+
+    def get_cursor(self):
+        """Shortcut to always get a cursor from a valid connection."""
+        return self.get_conn().cursor()
 
     def close(self):
         if self.conn:
             self.conn.close()
+            self.conn = None
 
     def delete_media_table(self):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
         try:
             cursor.execute("DROP TABLE IF EXISTS media")
-            self.conn.commit()
+            self.get_conn().commit()
         except sqlite3.Error as e:
             print(f"Error deleting media table: {e}")
 
     def clear_table(self, table_name, reset_id=True):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
         cursor.execute(f"DELETE FROM {table_name}")
         if reset_id:
             cursor.execute("DELETE FROM sqlite_sequence WHERE name = ?", (table_name,))
-        self.conn.commit()
+        self.get_conn().commit()
 
     def remove_tag_by_name(self, tag_name):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
 
         cursor.execute("SELECT id FROM tags WHERE name = ?", (tag_name,))
         tag_row = cursor.fetchone()
@@ -83,11 +92,11 @@ class MediaDatabase:
         cursor.execute("DELETE FROM media_tags WHERE tag_id = ?", (tag_id,))
         cursor.execute("DELETE FROM tags WHERE id = ?", (tag_id,))
 
-        self.conn.commit()
+        self.get_conn().commit()
         return True
 
     def rename_tag(self, old_name, new_name):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
 
         cursor.execute("SELECT id FROM tags WHERE name = ?", (old_name,))
         tag_row = cursor.fetchone()
@@ -102,11 +111,11 @@ class MediaDatabase:
 
         cursor.execute("UPDATE tags SET name = ? WHERE id = ?", (new_name, tag_id))
 
-        self.conn.commit()
+        self.get_conn().commit()
         return True
 
     def create_tables(self):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
 
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS media (
@@ -144,16 +153,16 @@ class MediaDatabase:
         );
         """)
 
-        self.conn.commit()
+        self.get_conn().commit()
 
     def refresh_database(self):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
 
         try:
             cursor.execute("DROP TABLE IF EXISTS media_tags")
             cursor.execute("DROP TABLE IF EXISTS tags")
             cursor.execute("DROP TABLE IF EXISTS media")
-            self.conn.commit()
+            self.get_conn().commit()
         except sqlite3.Error as e:
             print(f"Error dropping tables: {e}")
 
@@ -161,7 +170,7 @@ class MediaDatabase:
         self.populate_media()
 
     def populate_media(self):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
         supported_exts = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.mp4', '.avi', '.mov', '.mkv'}
 
         media_dir = Path(self.media_path)
@@ -215,10 +224,10 @@ class MediaDatabase:
             except Exception as e:
                 print(f"DB insert error for {file.name}: {e}")
 
-        self.conn.commit()
+        self.get_conn().commit()
 
     def get_first_media(self, limit=10, media_type='image', get_head=True):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
         cursor.execute(f"""
             SELECT * FROM media
             WHERE type = ?
@@ -230,60 +239,60 @@ class MediaDatabase:
         return [dict(zip(columns, row)) for row in rows]
 
     def get_media_count(self):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
         cursor.execute("SELECT COUNT(*) FROM media")
         return cursor.fetchone()[0]
 
     def get_media_count_by_type(self, media_type="image"):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
         cursor.execute("SELECT COUNT(*) FROM media WHERE type = ?", (media_type,))
         return cursor.fetchone()[0]
 
     def toggle_favourite(self, image_id, is_favourite):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
         cursor.execute("""
             UPDATE media SET is_favourite = ? WHERE id = ?
         """, (1 if is_favourite else 0, image_id))
-        self.conn.commit()
+        self.get_conn().commit()
 
     def get_highest_id(self):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
         cursor.execute("SELECT MAX(id) FROM media")
         result = cursor.fetchone()
         return result[0] if result[0] is not None else -1
 
     def get_unique_values(self, column_name, table="media"):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
         query = f"SELECT DISTINCT {column_name} FROM {table}"
         cursor.execute(query)
         results = cursor.fetchall()
         return [row[0] for row in results]
 
     def set_image_filename(self, image_id, new_filename):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
         cursor.execute("""
             UPDATE media
             SET filename = ?
             WHERE id = ?
         """, (new_filename, image_id))
-        self.conn.commit()
+        self.get_conn().commit()
 
     def add_tag(self, tag_name):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
         cursor.execute("SELECT id FROM tags WHERE name = ?", (tag_name,))
         if cursor.fetchone() is None:
             cursor.execute("INSERT INTO tags (name) VALUES (?)", (tag_name,))
-            self.conn.commit()
+            self.get_conn().commit()
             return True
         return False
 
     def get_all_tags(self):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
         cursor.execute("SELECT name FROM tags ORDER BY name ASC")
         return [row[0] for row in cursor.fetchall()]
 
     def set_image_tags(self, image_id, tag_names):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
 
         # Remove all existing tags
         cursor.execute("DELETE FROM media_tags WHERE media_id = ?", (image_id,))
@@ -303,10 +312,10 @@ class MediaDatabase:
                 VALUES (?, ?)
             """, (image_id, tag_id))
 
-        self.conn.commit()
+        self.get_conn().commit()
 
     def add_tags_to_image(self, image_id, tag_names):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
 
         for tag_name in tag_names:
             cursor.execute("SELECT id FROM tags WHERE name = ?", (tag_name,))
@@ -323,10 +332,10 @@ class MediaDatabase:
                 VALUES (?, ?)
             """, (image_id, tag_id))
 
-        self.conn.commit()
+        self.get_conn().commit()
 
     def add_tag_to_images(self, tag_name, image_ids):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
         
         cursor.execute("SELECT id FROM tags WHERE name = ?", (tag_name,))
         tag_row = cursor.fetchone()
@@ -343,10 +352,10 @@ class MediaDatabase:
                 VALUES (?, ?)
             """, (image_id, tag_id))
 
-        self.conn.commit()
+        self.get_conn().commit()
 
     def apply_filters(self, filters, filters_active):
-        cursor = self.conn.cursor()
+        cursor = self.get_cursor()
         where_clauses = []
         params = []
 
