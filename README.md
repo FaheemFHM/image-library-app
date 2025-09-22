@@ -10,7 +10,7 @@ This project was intended to:
 
 ## Sample
 
-
+![App Screenshot](https://github.com/FaheemFHM/image-library-app/screenshot.png?raw=true)
 
 ## Features
 
@@ -58,7 +58,8 @@ image-library-app/
 
 ## Known Issues
 
-- UI still appears to freeze, despite moving database interactions to separate worker thread
+- UI still appears to freeze when loading large amounts of data
+- Adding a tag sometimes crashes the system
 
 ## License
 
