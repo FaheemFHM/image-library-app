@@ -31,22 +31,24 @@ This project was intended to:
 
 ## Project Structure
 
+```text
 image-library-app/
-├── components/			 # custom PyQt widget definitions
-│   ├── __init__.py     # makes 'components' a python package
-│   ├── Gallery.py
-│   ├── InputWidgets.py
-│   ├── MediaBar.py
-│   ├── Sidebar.py
-│   ├── Slideshow.py
-│   ├── StyledWidgets.py
-│   ├── TagList.py
-│   ├── Window.py
-│   ├── Database.py	 # database interaction code
-├── media/              # sample images/videos
-├── style.qss           # visual styling
-├── database.db         # SQLite database
-├── main.py             # main entry point
+├── components/ # custom PyQt widget definitions
+│ ├── init.py # makes 'components' a python package
+│ ├── Gallery.py
+│ ├── InputWidgets.py
+│ ├── MediaBar.py
+│ ├── Sidebar.py
+│ ├── Slideshow.py
+│ ├── StyledWidgets.py
+│ ├── TagList.py
+│ ├── Window.py
+│ ├── Database.py # database interaction code
+├── media/ # sample images/videos
+├── style.qss # visual styling
+├── database.db # SQLite database
+├── main.py # main entry point
+```
 
 ## Roadmap
 
