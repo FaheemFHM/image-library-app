@@ -44,10 +44,10 @@ image-library-app/
 │ ├── TagList.py
 │ ├── Window.py
 │ ├── Database.py # database interaction code
-├── media/ # sample images/videos
 ├── style.qss # visual styling
 ├── database.db # SQLite database
 ├── main.py # main entry point
+├── ../media/ # folder containing loose image files
 ```
 
 ## Roadmap
