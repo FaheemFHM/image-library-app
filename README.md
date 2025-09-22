@@ -2,16 +2,24 @@
 # Image Library App
 
 A desktop application built with Python and PyQt5 for managing and browsing images and videos.
-This project started as a way to practice GUI design, modular architecture, and repo hygiene while learning PyQt.
 
-This project was intented to:
-- Fulfill the personal need for a slideshow application for family photos.
+This project was intended to:
+- Fulfil the personal need for a slideshow application for family photos.
 - Be a way to practise GUI design, system architecture and repository management.
 - Learn a Python GUI framework, in this case PyQt5.
 
+## Sample
+
+
+
 ## Features
 
-
+- Image loading and viewing
+- Image searching
+- Metadata-based filter and sort systems
+- Tag-based filtering
+- Data persistence using SQLite
+- Slideshow of selected images
 
 ## Tech Stack
 
@@ -21,21 +29,36 @@ This project was intented to:
 - SQLite 3 - database interactions
 - Various Python standard libraries
 
-## Installation
-
-
-
 ## Project Structure
 
+image-library-app/
+├── components/			 # custom PyQt widget definitions
+│   ├── __init__.py     # makes 'components' a python package
+│   ├── Gallery.py
+│   ├── InputWidgets.py
+│   ├── MediaBar.py
+│   ├── Sidebar.py
+│   ├── Slideshow.py
+│   ├── StyledWidgets.py
+│   ├── TagList.py
+│   ├── Window.py
+│   ├── Database.py	 # database interaction code
+├── media/              # sample images/videos
+├── style.qss           # visual styling
+├── database.db         # SQLite database
+├── main.py             # main entry point
 
+## Roadmap
 
-## Sample Roadmap
-
-
+- Image thumbnails for faster loading times
+- Remove gallery size cap
+- Improved error logging
+- Responsiveness to screen sizes
+- Video playing subsystem
 
 ## Known Issues
 
-
+- UI still appears to freeze, despite moving database interactions to separate worker thread
 
 ## License
 
