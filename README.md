@@ -10,7 +10,7 @@ This project was intended to:
 
 ## Sample
 
-![App Screenshot](https://github.com/FaheemFHM/image-library-app/screenshot.png?raw=true)
+![App Screenshot](screenshot.png)
 
 ## Features
 
